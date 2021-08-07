@@ -637,6 +637,11 @@ void DrawPicture(int x, int y, Picture& pic)
 	for (auto i = 0U; i < pic.m_Height; i++) {
 		memcpy((uint16_t*)lpVideoBuf + x + (y + i) * 800U, pic.m_Data + (pic.m_Height - i - 1) * pic.m_Width, pic.m_Width * 2);
 	}
+
+	// SDL
+	for (auto i = 0U; i < pic.m_Height; i++) {
+		memcpy((uint16_t*)drawSurface->pixels + x + (y + i) * 800U, pic.m_Data + (pic.m_Height - i - 1) * pic.m_Width, pic.m_Width * 2);
+	}
 }
 
 
