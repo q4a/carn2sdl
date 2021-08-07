@@ -457,7 +457,7 @@ void InitInterface()
 	MenuHunt[m].Count = 0;
 	MenuHunt[m].Offset = 0;
 	// ...
-	MenuHunt[m].Rect = { 10, 382, 190, 542 };
+	MenuHunt[m].Rect = { 10, 382, 180, 160 };
 
 	m = 1; // Dinosaurs
 	MenuHunt[m].x0 = 10;
@@ -466,7 +466,7 @@ void InitInterface()
 	MenuHunt[m].Count = 0;
 	MenuHunt[m].Offset = 0;
 	// ...
-	MenuHunt[m].Rect = { 210, 382, 390, 542 };
+	MenuHunt[m].Rect = { 210, 382, 180, 160 };
 
 	m = 2; // Weapons
 	MenuHunt[m].x0 = 210;
@@ -475,7 +475,7 @@ void InitInterface()
 	MenuHunt[m].Count = 0;
 	MenuHunt[m].Offset = 0;
 	// ...
-	MenuHunt[m].Rect = { 410, 382, 590, 542 };
+	MenuHunt[m].Rect = { 410, 382, 180, 160 };
 
 	m = 3; // Accessories / Utilities
 	MenuHunt[m].x0 = 10;
