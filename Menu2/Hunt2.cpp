@@ -298,7 +298,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 		CreateLog();
 
 		CreateMainWindow();
-		InitNetwork();
 		InitInterface();
 		//InitAudioSystem(hwndMain, NULL, 0);
 
@@ -361,7 +360,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	ReleaseResources();
 	//Audio_Shutdown();
 	ShutdownInterface();
-	ShutdownNetwork();
 	DestroyWindow(hwndMain); hwndMain = HWND_DESKTOP;
 	UnregisterClass("CarnivoresMenu2", hInst);
 	CloseLogs();

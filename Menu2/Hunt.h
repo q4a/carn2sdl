@@ -642,12 +642,6 @@ bool LoadPicture(Picture& pic, const std::string& fpath);
 bool LoadText(std::vector<std::string>& txt, const std::string& path);
 bool LoadWave(SoundFX& sfx, const std::string& path);
 
-/*** Networking ***/
-void InitNetwork();
-void ShutdownNetwork();
-void NetworkGet(LPSTR url, LPSTR host, LPSTR data);
-void NetworkPost(LPSTR url, LPSTR host, LPSTR data);
-
 /*** Audio ***/
 void Audio_Shutdown();
 void InitAudioSystem(HWND hw, HANDLE hlog, int  driver);
