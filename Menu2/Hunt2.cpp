@@ -222,6 +222,26 @@ void HuntWindowResize()
 
 bool CreateMainWindow()
 {
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+		std::stringstream ss;
+		ss << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
+		throw std::runtime_error(ss.str());
+	}
+
+#ifdef _iceage
+	const char* title = "Carnivores: Ice Age - Menu";
+#else // !_iceage
+	const char* title = "Carnivores 2 - Menu";
+#endif
+
+	window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_SHOWN);
+	if (window == NULL)
+	{
+		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+	}
+
+	screenSurface = SDL_GetWindowSurface(window);
+
 	WNDCLASSEX wc;
 	memset(&wc, 0, sizeof(WNDCLASSEX));
 
@@ -309,6 +329,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 
 		while (true)
 		{
+			//Handle SDL event queue
+			SDL_Event e;
+			bool quit = false;
+			while (SDL_PollEvent(&e) != 0)
+			{
+				//User requests quit
+				if (e.type == SDL_QUIT)
+				{
+					quit = true;
+					break;
+				}
+				//std::cout << "SDL Event " << e.type << std::endl;
+			}
+			if (quit) break;
+
 			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 			{
 				if (msg.message == WM_QUIT)  break;
@@ -360,6 +395,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	ReleaseResources();
 	//Audio_Shutdown();
 	ShutdownInterface();
+
+	SDL_DestroyWindow(window);
+	SDL_Quit();
+
 	DestroyWindow(hwndMain); hwndMain = HWND_DESKTOP;
 	UnregisterClass("CarnivoresMenu2", hInst);
 	CloseLogs();

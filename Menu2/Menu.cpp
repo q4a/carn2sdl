@@ -24,7 +24,7 @@ public:
 	std::vector<std::pair<std::string, bool>> Item;
 	int32_t		Selected;
 	int32_t		Hilite;
-	RECT		Rect;
+	SDL_Rect	Rect;
 	int32_t		Padding;
 
 	MenuSet() :
@@ -72,10 +72,9 @@ HBITMAP bmpMain;
 HBITMAP hbmpOld;
 HFONT hfntOld;
 
-POINT g_CursorPos;
+SDL_Point g_CursorPos;
+int g_MouseState;
 int g_WaitKey = -1;
-bool g_KeyboardUsed = false;
-
 
 // String table
 const char g_GitHubURL[] = "https://github.com/carnivores-cpe/Carn2-Menu";
@@ -93,27 +92,30 @@ const char g_RendererFile[4][7] = { "v_soft", "v_3dfx", "v_d3d", "v_gl" };
 int MapVKKey(int k);
 
 
-bool IsPointInRect(POINT& p, RECT& rc)
+bool IsPointInRect(SDL_Point& p, SDL_Rect& rc)
 {
-	return (p.x > rc.left && p.y > rc.top && p.x < rc.right&& p.y < rc.bottom);
+	return (p.x > rc.x && p.y > rc.y && p.x < rc.x+rc.w && p.y < rc.y+rc.h);
 }
 
 
 void WaitForMouseRelease()
 {
-	while (GetAsyncKeyState(VK_RBUTTON) & 0x80000000);
-	while (GetAsyncKeyState(VK_MBUTTON) & 0x80000000);
-	while (GetAsyncKeyState(VK_LBUTTON) & 0x80000000);
+	const int mask = SDL_BUTTON(1) | SDL_BUTTON(2) | SDL_BUTTON(3);
+	int state;
+	do {
+		SDL_PumpEvents();
+		state = SDL_GetMouseState(NULL, NULL);
+		std::cout << "mouse state " << state << std::endl;
+	} while ((state & mask) != 0);
 }
-
 
 void AcceptNewKey()
 {
-	uint8_t keystate[256];
+	const uint8_t* keystate;
 
-	if (GetKeyboardState(keystate)) {
+	if (keystate = SDL_GetKeyboardState(NULL)) {
 
-		if (keystate[VK_ESCAPE] & 128)
+		if (keystate[SDL_SCANCODE_ESCAPE])
 		{
 			*((uint32_t*)(&g_Options.KeyMap) + g_WaitKey) = 0;
 			g_WaitKey = -2;
@@ -123,7 +125,7 @@ void AcceptNewKey()
 		{
 			for (int k = 0; k < 255; k++)
 			{
-				if (keystate[k] & 128)
+				if (keystate[k])
 				{
 					for (int t = 0; t < 16; t++)
 						if (*((uint32_t*)(&g_Options.KeyMap) + t) == k)
@@ -385,7 +387,7 @@ void InitInterface()
 	MenuRegistry.x0 = 360;
 	MenuRegistry.y0 = 363;
 	//MenuEventStart(MENU_REGISTER) contains the AddMenuItem() calls
-	MenuRegistry.Rect = { 360, 363, 499, 491 }; // Enough room for 9.14 items with fnt_Small
+	MenuRegistry.Rect = { 360, 363, 139, 128 }; // Enough room for 9.14 items with fnt_Small
 
 	/************************************************************
 	* Options lists
@@ -401,7 +403,7 @@ void InitInterface()
 	MenuOptions[m].AddItem("View range");
 	MenuOptions[m].AddItem("Measurement");
 	MenuOptions[m].AddItem("Sound API");
-	MenuOptions[m].Rect = { 40, 75, 380, 75 + static_cast<long>(MenuOptions[0].Count * 24) };
+	MenuOptions[m].Rect = { 40, 75, 340, (int)MenuOptions[0].Count * 24 };
 
 	m = OPT_KEYBINDINGS;
 	MenuOptions[m].x0 = 422;
@@ -430,7 +432,7 @@ void InitInterface()
 #endif //_iceage
 	MenuOptions[m].AddItem("Invert Mouse");
 	MenuOptions[m].AddItem("Mouse sensitivity");
-	MenuOptions[m].Rect = { 422, 75, 760, 75 + static_cast<long>(MenuOptions[1].Count * 24) };
+	MenuOptions[m].Rect = { 422, 75, 338, (int)MenuOptions[1].Count * 24 };
 
 	m = OPT_VIDEO;
 	MenuOptions[m].x0 = 70;
@@ -444,7 +446,7 @@ void InitInterface()
 	MenuOptions[m].AddItem("Textures");
 	MenuOptions[m].AddItem("Alpha Source");
 	MenuOptions[m].AddItem("Brightness");
-	MenuOptions[m].Rect = { 40, 350, 380, 350 + static_cast<long>(MenuOptions[2].Count * 24) };
+	MenuOptions[m].Rect = { 40, 350, 340, (int)MenuOptions[2].Count * 24 };
 
 	/************************************************************
 	* Hunt lists
@@ -489,7 +491,7 @@ void InitInterface()
 #ifdef _iceage
 	MenuHunt[m].AddItem("Supply drop");
 #endif //_iceage
-	MenuHunt[m].Rect = { 610, 382, 790, 542 };
+	MenuHunt[m].Rect = { 610, 382, 180, 160 };
 
 	std::cout << "Interface: Initialisation Ok!" << std::endl;
 
@@ -651,7 +653,7 @@ Draw the menu background and overlay the 'on' layer
 */
 void DrawMenuBg(MenuItem& menu)
 {
-	POINT& p = g_CursorPos;
+	SDL_Point& p = g_CursorPos;
 	uint8_t cursor_id = 0;
 
 	cursor_id = menu.GetID((p.x / 2), (p.y / 2));
@@ -733,7 +735,7 @@ void DrawURLShadow(int x, int y, const std::string& text, uint32_t color, int al
 		x -= W;
 	}
 
-	RECT rc = { x, y, x + W, y + H };
+	SDL_Rect rc = { x, y, W, H };
 
 	if (IsPointInRect(g_CursorPos, rc))
 	{
@@ -1265,8 +1267,8 @@ void DrawMenuHunt()
 			c = RGB(255, 255, 10);
 		}
 
-		DrawTextShadow(MenuHunt[0].Rect.left + 4, MenuHunt[0].Rect.top + (16 * i), g_AreaInfo[ii].m_Name, c);
-		DrawTextShadow(MenuHunt[0].Rect.right - 4, MenuHunt[0].Rect.top + (16 * i), sc.str(), c, DTA_RIGHT);
+		DrawTextShadow(MenuHunt[0].Rect.x + 4, MenuHunt[0].Rect.y + (16 * i), g_AreaInfo[ii].m_Name, c);
+		DrawTextShadow(MenuHunt[0].Rect.x + MenuHunt[0].Rect.w - 4, MenuHunt[0].Rect.y + (16 * i), sc.str(), c, DTA_RIGHT);
 	}
 
 	for (unsigned ii = MenuHunt[1].Offset; ii < MenuHunt[1].Offset + MenuHunt[1].Item.size(); ii++)
@@ -1298,8 +1300,8 @@ void DrawMenuHunt()
 				c = RGB(255, 255, 10);
 			}
 
-			DrawTextShadow(MenuHunt[1].Rect.left + 4, MenuHunt[1].Rect.top + (16 * i), s, c);
-			DrawTextShadow(MenuHunt[1].Rect.right - 4, MenuHunt[1].Rect.top + (16 * i), sc.str(), c, DTA_RIGHT);
+			DrawTextShadow(MenuHunt[1].Rect.x + 4, MenuHunt[1].Rect.y + (16 * i), s, c);
+			DrawTextShadow(MenuHunt[1].Rect.x + MenuHunt[1].Rect.w - 4, MenuHunt[1].Rect.y + (16 * i), sc.str(), c, DTA_RIGHT);
 		}
 		catch (std::out_of_range& e) {
 			throw std::runtime_error(e.what());
@@ -1324,8 +1326,8 @@ void DrawMenuHunt()
 			c = RGB(255, 255, 10);
 		}
 
-		DrawTextShadow(MenuHunt[2].Rect.left + 4, MenuHunt[2].Rect.top + (16 * i), g_WeapInfo[ii].m_Name, c);
-		DrawTextShadow(MenuHunt[2].Rect.right - 4, MenuHunt[2].Rect.top + (16 * i), sc.str(), c, DTA_RIGHT);
+		DrawTextShadow(MenuHunt[2].Rect.x + 4, MenuHunt[2].Rect.y + (16 * i), g_WeapInfo[ii].m_Name, c);
+		DrawTextShadow(MenuHunt[2].Rect.x - MenuHunt[2].Rect.w + 4, MenuHunt[2].Rect.y + (16 * i), sc.str(), c, DTA_RIGHT);
 	}
 
 	for (unsigned ii = MenuHunt[3].Offset; ii < MenuHunt[3].Offset + MenuHunt[3].Item.size(); ii++)
@@ -1338,7 +1340,7 @@ void DrawMenuHunt()
 			c = RGB(255, 255, 10);
 		}
 
-		DrawTextShadow(MenuHunt[3].Rect.left + 4, MenuHunt[3].Rect.top + (16 * i), MenuHunt[3].Item[ii].first, c);
+		DrawTextShadow(MenuHunt[3].Rect.x + 4, MenuHunt[3].Rect.y + (16 * i), MenuHunt[3].Item[ii].first, c);
 	}
 }
 
@@ -1348,7 +1350,7 @@ Draw the save file 'registry' menu
 */
 void DrawMenuRegistry()
 {
-	POINT& p = g_CursorPos;
+	SDL_Point& p = g_CursorPos;
 	std::stringstream ss;
 	uint32_t color = RGB(239, 228, 176);
 
@@ -1407,28 +1409,28 @@ NOTE: Could move these to individual functions if a state machine is confusing
 */
 void MenuEventInput(int32_t menu)
 {
-	if (!g_KeyboardUsed) return;
+	if (!g_KeyboardState) return;
 
 	uint8_t id = g_MenuItem.GetID(g_CursorPos.x / 2, g_CursorPos.y / 2);
 
-	if (g_KeyboardState[VK_LBUTTON] & 128) {
+	if (g_MouseState & SDL_BUTTON_LMASK) {
 		//PlaySound("huntdat/soundfx/menugo.wav", NULL, SND_NODEFAULT | SND_ASYNC | SND_FILENAME);
 		//AddVoice(g_MenuSound_Go.m_Length, g_MenuSound_Go.m_Data);
 	}
 
 	if (menu == MENU_CREDITS)
 	{
-		if (g_KeyboardState[VK_RETURN] & 128) {
-			g_KeyboardState[VK_LBUTTON] |= 128;
+		if (g_KeyboardState[SDL_SCANCODE_RETURN]) { // XXX TODO also check RETURN2?
+			g_MouseState |= SDL_BUTTON_LMASK;
 		}
 
-		if (g_KeyboardState[VK_SPACE] & 128) {
-			g_KeyboardState[VK_LBUTTON] |= 128;
+		if (g_KeyboardState[SDL_SCANCODE_SPACE]) {
+			g_MouseState |= SDL_BUTTON_LMASK;
 		}
 
-		if (g_KeyboardState[VK_LBUTTON] & 128) {
+		if (g_MouseState & SDL_BUTTON_LMASK) {
 			WaitForMouseRelease();
-			RECT rc = { 550, 42, 600 + GetTextW(hdcCMain, g_GitHubURL), 56 };
+			SDL_Rect rc = { 550, 42, 50 + GetTextW(hdcCMain, g_GitHubURL), 14 };
 
 			if (IsPointInRect(g_CursorPos, rc))
 			{
@@ -1443,17 +1445,18 @@ void MenuEventInput(int32_t menu)
 	}
 	else if (menu == MENU_REGISTER)
 	{
-		if (g_KeyboardState[VK_RETURN] & 128) {
-			g_KeyboardState[VK_LBUTTON] |= 128;
+		if (g_KeyboardState[SDL_SCANCODE_RETURN]) {
+			g_MouseState |= SDL_BUTTON_LMASK;
 			id = 1;
 		}
 
-		if (g_KeyboardState[VK_DELETE] & 128) {
-			g_KeyboardState[VK_LBUTTON] |= 128;
+		if (g_KeyboardState[SDL_SCANCODE_DELETE]) {
+			g_MouseState |= SDL_BUTTON_LMASK;
 			id = 2;
 		}
 
-		if (g_KeyboardState[VK_LBUTTON] & 128) {
+		if (g_MouseState & SDL_BUTTON_LMASK) {
+			std::cout << "Register LM " << g_MouseState << std::endl;
 			if (id == 1) {
 				//PlaySound("huntdat/soundfx/menugo.wav", NULL, SND_ASYNC | SND_FILENAME);
 
@@ -1494,7 +1497,7 @@ void MenuEventInput(int32_t menu)
 	*/
 	else if (menu == MENU_REGISTRY_DELETE)
 	{
-		if (g_KeyboardState[VK_LBUTTON] & 128) {
+		if (g_MouseState & SDL_BUTTON_LMASK) {
 			if (id == 1)
 			{
 				WaitForMouseRelease();
@@ -1514,7 +1517,7 @@ void MenuEventInput(int32_t menu)
 	*/
 	else if (menu == MENU_REGISTRY_WAIVER)
 	{
-		if (g_KeyboardState[VK_LBUTTON] & 128) {
+		if (g_MouseState & SDL_BUTTON_LMASK) {
 			if (id == 1)
 			{
 				WaitForMouseRelease();
@@ -1540,7 +1543,7 @@ void MenuEventInput(int32_t menu)
 		}
 		else if (id == 4)
 		{
-			if (g_KeyboardState[VK_LBUTTON] & 128)
+			if (g_MouseState & SDL_BUTTON_LMASK)
 			{
 				WaitForMouseRelease();
 				TrophySave(g_UserProfile); // Save all the settings
@@ -1566,13 +1569,13 @@ void MenuEventInput(int32_t menu)
 					}
 					else mo.Hilite = -1;
 
-					if (g_KeyboardState[VK_LBUTTON] & 128) // Left Click
+					if (g_MouseState & SDL_BUTTON_LMASK) // Left Click
 					{
 						if (m == OPT_GAME) {
 							MenuSet& menu = MenuOptions[OPT_GAME];
 							//int w = (menu.Rect.right - menu.Rect.left) - menu.Padding;
-							int x1 = menu.Rect.right - menu.Padding;
-							int tbw = ((menu.Rect.right - menu.Rect.left) / 2) - menu.Padding;
+							int x1 = menu.Rect.x + menu.Rect.w - menu.Padding;
+							int tbw = (menu.Rect.w / 2) - menu.Padding;
 							float v = (float)(g_CursorPos.x - (x1 - tbw)) / (float)tbw;
 
 							mo.Selected = mo.Hilite;
@@ -1609,8 +1612,8 @@ void MenuEventInput(int32_t menu)
 						else if (m == OPT_KEYBINDINGS) { // Left Click
 							MenuSet& menu = MenuOptions[OPT_KEYBINDINGS];
 							//int w = (menu.Rect.right - menu.Rect.left) - menu.Padding;
-							int x1 = menu.Rect.right - menu.Padding;
-							int tbw = ((menu.Rect.right - menu.Rect.left) / 2) - menu.Padding;
+							int x1 = menu.Rect.x + menu.Rect.w - menu.Padding;
+							int tbw = (menu.Rect.w / 2) - menu.Padding;
 							float v = (float)(g_CursorPos.x - (x1 - tbw)) / (float)tbw;
 
 							mo.Selected = mo.Hilite;
@@ -1633,8 +1636,8 @@ void MenuEventInput(int32_t menu)
 						else if (m == OPT_VIDEO) { // Left Click
 							MenuSet& menu = MenuOptions[OPT_VIDEO];
 							//int w = (menu.Rect.right - menu.Rect.left) - menu.Padding;
-							int x1 = menu.Rect.right - menu.Padding;
-							int tbw = ((menu.Rect.right - menu.Rect.left) / 2) - menu.Padding;
+							int x1 = menu.Rect.x + menu.Rect.w - menu.Padding;
+							int tbw = (menu.Rect.w / 2) - menu.Padding;
 							float v = (float)(g_CursorPos.x - (x1 - tbw)) / (float)tbw;
 
 							mo.Selected = mo.Hilite;
@@ -1690,7 +1693,7 @@ void MenuEventInput(int32_t menu)
 		}
 	}
 	else if (menu == MENU_HUNT) {
-		if (g_KeyboardState[VK_ESCAPE] & 128)
+		if (g_KeyboardState[SDL_SCANCODE_ESCAPE])
 		{
 			ChangeMenuState(MENU_QUIT);
 		}
@@ -1707,7 +1710,7 @@ void MenuEventInput(int32_t menu)
 			}
 
 			int32_t score = (g_UserProfile.Score - g_ScoreDebit) + scorea;
-			int yd = g_CursorPos.y - MenuHunt[0].Rect.top;
+			int yd = g_CursorPos.y - MenuHunt[0].Rect.y;
 
 			unsigned index = yd / 16;
 
@@ -1720,7 +1723,7 @@ void MenuEventInput(int32_t menu)
 				g_HuntInfo.first = 0; // Areas
 				g_HuntInfo.second = index;
 
-				if ((g_KeyboardState[VK_LBUTTON] & 128) && score >= g_AreaInfo[index].m_Price)
+				if ((g_MouseState & SDL_BUTTON_LMASK) && score >= g_AreaInfo[index].m_Price)
 				{
 					WaitForMouseRelease();
 					//PlaySound("huntdat/soundfx/menumov.wav", NULL, SND_ASYNC | SND_FILENAME);
@@ -1741,7 +1744,7 @@ void MenuEventInput(int32_t menu)
 		else if (IsPointInRect(g_CursorPos, MenuHunt[1].Rect))
 		{
 			int32_t score = g_UserProfile.Score - g_ScoreDebit;
-			int yd = g_CursorPos.y - MenuHunt[1].Rect.top;
+			int yd = g_CursorPos.y - MenuHunt[1].Rect.y;
 
 			unsigned index = yd / 16;
 
@@ -1754,7 +1757,7 @@ void MenuEventInput(int32_t menu)
 				g_HuntInfo.first = 1; // Dinos
 				g_HuntInfo.second = index;
 
-				if ((g_KeyboardState[VK_LBUTTON] & 128))
+				if (g_MouseState & SDL_BUTTON_LMASK)
 				{
 					WaitForMouseRelease();
 					//PlaySound("huntdat/soundfx/menumov.wav", NULL, SND_ASYNC | SND_FILENAME);
@@ -1775,7 +1778,7 @@ void MenuEventInput(int32_t menu)
 		else if (IsPointInRect(g_CursorPos, MenuHunt[2].Rect))
 		{
 			int32_t score = g_UserProfile.Score - g_ScoreDebit;
-			int yd = g_CursorPos.y - MenuHunt[2].Rect.top;
+			int yd = g_CursorPos.y - MenuHunt[2].Rect.y;
 
 			unsigned index = yd / 16;
 
@@ -1788,7 +1791,7 @@ void MenuEventInput(int32_t menu)
 				g_HuntInfo.first = 2; // Weapons
 				g_HuntInfo.second = index;
 
-				if ((g_KeyboardState[VK_LBUTTON] & 128))
+				if (g_MouseState & SDL_BUTTON_LMASK)
 				{
 					WaitForMouseRelease();
 					//PlaySound("huntdat/soundfx/menumov.wav", NULL, SND_ASYNC | SND_FILENAME);
@@ -1809,7 +1812,7 @@ void MenuEventInput(int32_t menu)
 		else if (IsPointInRect(g_CursorPos, MenuHunt[3].Rect))
 		{
 			//int32_t score = g_UserProfile.Score - g_ScoreDebit;
-			int yd = g_CursorPos.y - MenuHunt[3].Rect.top;
+			int yd = g_CursorPos.y - MenuHunt[3].Rect.y;
 			unsigned index = yd / 16;
 
 			if (index < MenuHunt[3].Item.size())
@@ -1818,7 +1821,7 @@ void MenuEventInput(int32_t menu)
 				g_HuntInfo.first = 3; // Accessories
 				g_HuntInfo.second = index;
 
-				if ((g_KeyboardState[VK_LBUTTON] & 128))
+				if (g_MouseState & SDL_BUTTON_LMASK)
 				{
 					WaitForMouseRelease();
 					//PlaySound("huntdat/soundfx/menumov.wav", NULL, SND_ASYNC | SND_FILENAME);
@@ -1829,7 +1832,7 @@ void MenuEventInput(int32_t menu)
 		}
 
 		// Left Mouse Click
-		if (g_KeyboardState[VK_LBUTTON] & 128)
+		if (g_MouseState & SDL_BUTTON_LMASK)
 		{
 			if (id >= 1 && id <= 6)
 			{
@@ -1930,10 +1933,10 @@ void MenuEventInput(int32_t menu)
 	}
 	else if (menu == MENU_MAIN)
 	{
-		if (g_KeyboardState[VK_ESCAPE] & 128) {
+		if (g_KeyboardState[SDL_SCANCODE_ESCAPE]) {
 			ChangeMenuState(MENU_QUIT);
 		}
-		else if (g_KeyboardState[VK_LBUTTON] & 128) {
+		else if (g_MouseState & SDL_BUTTON_LMASK) {
 			WaitForMouseRelease();
 			if (id >= 1 && id <= 6) {
 				WaitForMouseRelease();
@@ -1965,11 +1968,11 @@ void MenuEventInput(int32_t menu)
 	}
 	else if (menu == MENU_STATISTICS)
 	{
-		if (g_KeyboardState[VK_ESCAPE] & 128) {
+		if (g_KeyboardState[SDL_SCANCODE_ESCAPE]) {
 			ChangeMenuState(MENU_QUIT);
 		}
 
-		if (g_KeyboardState[VK_LBUTTON] & 128) {
+		if (g_MouseState & SDL_BUTTON_LMASK) {
 			WaitForMouseRelease();
 			//PlaySound("huntdat/soundfx/menugo.wav", NULL, SND_ASYNC | SND_FILENAME);
 			ChangeMenuState(MENU_MAIN);
@@ -1977,7 +1980,7 @@ void MenuEventInput(int32_t menu)
 	}
 	else if (menu == MENU_QUIT)
 	{
-		if (g_KeyboardState[VK_LBUTTON] & 128) {
+		if (g_MouseState & SDL_BUTTON_LMASK) {
 			WaitForMouseRelease();
 			//if (id == 1 || id == 2) PlaySound("huntdat/soundfx/menugo.wav", NULL, SND_ASYNC | SND_FILENAME);
 
@@ -2001,10 +2004,10 @@ void DrawMenuOptions()
 	// Game options
 	for (auto i = 0U; i < MenuOptions[OPT_GAME].Item.size(); i++) {
 		MenuSet& menu = MenuOptions[OPT_GAME];
-		int x0 = menu.Rect.left + menu.Padding;// .x0;
-		int x1 = menu.Rect.right - menu.Padding;// .x0;
+		int x0 = menu.Rect.x + menu.Padding;// .x0;
+		int x1 = menu.Rect.x + menu.Rect.w - menu.Padding;// .x0;
 		int y0 = menu.y0 + (22 * i);
-		int tbw = ((menu.Rect.right - menu.Rect.left) / 2) - menu.Padding;
+		int tbw = (menu.Rect.w / 2) - menu.Padding;
 
 		if (menu.Hilite == i) c = on_c;
 		else c = label_c;
@@ -2022,10 +2025,10 @@ void DrawMenuOptions()
 	// Control key bindings
 	for (auto i = 0U; i < MenuOptions[OPT_KEYBINDINGS].Item.size(); i++) {
 		MenuSet& menu = MenuOptions[OPT_KEYBINDINGS];
-		int x0 = menu.Rect.left + menu.Padding;// .x0;
-		int x1 = menu.Rect.right - menu.Padding;// .x0;
+		int x0 = menu.Rect.x + menu.Padding;// .x0;
+		int x1 = menu.Rect.x + menu.Rect.w - menu.Padding;// .x0;
 		int y0 = menu.y0 + (22 * i);
-		int tbw = ((menu.Rect.right - menu.Rect.left) / 2) - menu.Padding;
+		int tbw = (menu.Rect.w / 2) - menu.Padding;
 
 		std::stringstream ss;
 
@@ -2050,10 +2053,10 @@ void DrawMenuOptions()
 	// Video/Graphics options
 	for (auto i = 0U; i < MenuOptions[OPT_VIDEO].Item.size(); i++) {
 		MenuSet& menu = MenuOptions[OPT_VIDEO];
-		int x0 = menu.Rect.left + menu.Padding;// x0;
-		int x1 = menu.Rect.right - menu.Padding;// x0;
+		int x0 = menu.Rect.x + menu.Padding;// x0;
+		int x1 = menu.Rect.x + menu.Rect.w - menu.Padding;// x0;
 		int y0 = menu.y0 + (22 * i);
-		int tbw = ((menu.Rect.right - menu.Rect.left) / 2) - menu.Padding;
+		int tbw = (menu.Rect.w / 2) - menu.Padding;
 
 		if (menu.Hilite == i) c = on_c;
 		else c = label_c;
@@ -2100,22 +2103,14 @@ Perform per-frame/tick update of the menus
 */
 void ProcessMenu()
 {
-	GetCursorPos(&g_CursorPos);
-	ScreenToClient(hwndMain, &g_CursorPos);
-
-	// Restrict the virtual cursor to the client area
-	if (g_CursorPos.x < 0) g_CursorPos.x = 0;
-	if (g_CursorPos.y < 0) g_CursorPos.y = 0;
-	if (g_CursorPos.x >= 800) g_CursorPos.x = 800 - 1;
-	if (g_CursorPos.y >= 600) g_CursorPos.y = 600 - 1;
+	g_MouseState = SDL_GetMouseState(&g_CursorPos.x, &g_CursorPos.y);
 
 	// Get the keyboard state
-	if (GetActiveWindow() == hwndMain) {
-		g_KeyboardUsed = GetKeyboardState(g_KeyboardState);
+	if (true /*GetActiveWindow() == hwndMain*/) { // XXX TODO renable after debugging
+		g_KeyboardState = SDL_GetKeyboardState(NULL);
 	}
 	else {
-		memset(g_KeyboardState, 0, 256);
-		g_KeyboardUsed = false;
+		g_KeyboardState = NULL;
 	}
 
 	// Trigger the Start() event of the menu if applicable

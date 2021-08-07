@@ -571,6 +571,9 @@ enum MenuStateEnum {
 // ======================================================================= //
 // Global Variables
 // ======================================================================= //
+EXTERNAL SDL_Window*			window;
+EXTERNAL SDL_Surface*			screenSurface;
+
 EXTERNAL HINSTANCE				hInst;
 EXTERNAL HWND					hwndMain;
 EXTERNAL HDC					hdcMain;
@@ -602,7 +605,7 @@ EXTERNAL int32_t				g_TimeOfDay;
 EXTERNAL bool					g_ObserverMode;
 EXTERNAL int32_t				g_ScoreDebit;
 
-EXTERNAL uint8_t                g_KeyboardState[256];
+EXTERNAL const uint8_t*         g_KeyboardState;
 
 EXTERNAL SoundFX				g_MenuSound_Go;
 EXTERNAL SoundFX				g_MenuSound_Ambient;
