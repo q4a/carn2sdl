@@ -10,6 +10,9 @@
 #include "Targa.h"
 
 #include <Windows.h>
+
+#include <SDL.h>
+
 //std
 #include <array>
 #include <fstream>
