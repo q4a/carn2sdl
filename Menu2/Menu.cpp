@@ -105,7 +105,6 @@ void WaitForMouseRelease()
 	do {
 		SDL_PumpEvents();
 		state = SDL_GetMouseState(NULL, NULL);
-		std::cout << "mouse state " << state << std::endl;
 	} while ((state & mask) != 0);
 }
 
@@ -695,6 +694,20 @@ void DrawMenuBg(MenuItem& menu)
 				*((uint16_t*)lpVideoBuf + ((x + 0L) + (y + 1L) * 800L)) = menu.m_Image[(x + 0) + (600 - (y + 1) - 1) * 800];
 				*((uint16_t*)lpVideoBuf + ((x + 1L) + (y + 1L) * 800L)) = menu.m_Image[(x + 1) + (600 - (y + 1) - 1) * 800];
 			}
+
+			// SDL
+			if (on) {
+				*((uint16_t*)drawSurface->pixels + ((x + 0L) + (y + 0L) * 800L)) = menu.m_Image_On[(x + 0) + (600 - (y + 0) - 1) * 800];
+				*((uint16_t*)drawSurface->pixels + ((x + 1L) + (y + 0L) * 800L)) = menu.m_Image_On[(x + 1) + (600 - (y + 0) - 1) * 800];
+				*((uint16_t*)drawSurface->pixels + ((x + 0L) + (y + 1L) * 800L)) = menu.m_Image_On[(x + 0) + (600 - (y + 1) - 1) * 800];
+				*((uint16_t*)drawSurface->pixels + ((x + 1L) + (y + 1L) * 800L)) = menu.m_Image_On[(x + 1) + (600 - (y + 1) - 1) * 800];
+			}
+			else {
+				*((uint16_t*)drawSurface->pixels + ((x + 0L) + (y + 0L) * 800L)) = menu.m_Image[(x + 0) + (600 - (y + 0) - 1) * 800];
+				*((uint16_t*)drawSurface->pixels + ((x + 1L) + (y + 0L) * 800L)) = menu.m_Image[(x + 1) + (600 - (y + 0) - 1) * 800];
+				*((uint16_t*)drawSurface->pixels + ((x + 0L) + (y + 1L) * 800L)) = menu.m_Image[(x + 0) + (600 - (y + 1) - 1) * 800];
+				*((uint16_t*)drawSurface->pixels + ((x + 1L) + (y + 1L) * 800L)) = menu.m_Image[(x + 1) + (600 - (y + 1) - 1) * 800];
+			}
 		}
 	}
 }
@@ -771,13 +784,16 @@ void InterfaceSetFont(HFONT font)
 void InterfaceClear(WORD Color)
 {
 	memset(lpVideoBuf, 0, (800 * 2) * 600);
+	memset(drawSurface->pixels, 0, (800 * 2) * 600);
 	hbmpOld = (HBITMAP)SelectObject(hdcCMain, bmpMain);
 	hfntOld = (HFONT)SelectObject(hdcCMain, fnt_Small);
 }
 
-
 void InterfaceBlt()
 {
+	SDL_BlitSurface(drawSurface, NULL, screenSurface, NULL);
+	SDL_UpdateWindowSurface(window);
+
 	BitBlt(hdcMain, 0, 0, 800, 600, hdcCMain, 0, 0, SRCCOPY);
 	SelectObject(hdcCMain, hfntOld);
 	SelectObject(hdcCMain, hbmpOld);

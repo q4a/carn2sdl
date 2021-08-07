@@ -241,6 +241,11 @@ bool CreateMainWindow()
 	}
 
 	screenSurface = SDL_GetWindowSurface(window);
+	drawSurface = SDL_CreateRGBSurface(0, 800, 600, 16,
+		0x1f << 10,
+		0x1f << 5,
+		0x1f,
+		0x00);
 
 	WNDCLASSEX wc;
 	memset(&wc, 0, sizeof(WNDCLASSEX));

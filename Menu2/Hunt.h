@@ -573,6 +573,7 @@ enum MenuStateEnum {
 // ======================================================================= //
 EXTERNAL SDL_Window*			window;
 EXTERNAL SDL_Surface*			screenSurface;
+EXTERNAL SDL_Surface*			drawSurface;
 
 EXTERNAL HINSTANCE				hInst;
 EXTERNAL HWND					hwndMain;
