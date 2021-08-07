@@ -12,6 +12,7 @@
 #include <Windows.h>
 
 #include <SDL.h>
+#include <SDL_ttf.h>
 
 //std
 #include <array>
@@ -574,6 +575,9 @@ enum MenuStateEnum {
 EXTERNAL SDL_Window*			window;
 EXTERNAL SDL_Surface*			screenSurface;
 EXTERNAL SDL_Surface*			drawSurface;
+EXTERNAL TTF_Font*				fontSmall;
+EXTERNAL TTF_Font*				fontMid;
+EXTERNAL TTF_Font*				fontBig;
 
 EXTERNAL HINSTANCE				hInst;
 EXTERNAL HWND					hwndMain;

@@ -222,6 +222,33 @@ void HuntWindowResize()
 
 bool CreateMainWindow()
 {
+	if (TTF_Init() < 0) {
+		std::stringstream ss;
+		ss << "Failed to initialize TTF: " << TTF_GetError() << std::endl;
+		throw std::runtime_error(ss.str());
+	}
+
+	fontSmall = TTF_OpenFont("LibreBaskerville-Regular.ttf", 10);
+	if (!fontSmall) {
+		std::stringstream ss;
+		ss << "Failed to load font: " << TTF_GetError() << std::endl;
+		throw std::runtime_error(ss.str());
+	}
+
+	fontMid = TTF_OpenFont("LibreBaskerville-Regular.ttf", 12);
+	if (!fontMid) {
+		std::stringstream ss;
+		ss << "Failed to load font: " << TTF_GetError() << std::endl;
+		throw std::runtime_error(ss.str());
+	}
+
+	fontBig = TTF_OpenFont("LibreBaskerville-Regular.ttf", 18);
+	if (!fontBig) {
+		std::stringstream ss;
+		ss << "Failed to load font: " << TTF_GetError() << std::endl;
+		throw std::runtime_error(ss.str());
+	}
+
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		std::stringstream ss;
 		ss << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
@@ -401,6 +428,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	//Audio_Shutdown();
 	ShutdownInterface();
 
+	TTF_Quit();
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 

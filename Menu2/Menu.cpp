@@ -72,6 +72,7 @@ HBITMAP bmpMain;
 HBITMAP hbmpOld;
 HFONT hfntOld;
 
+TTF_Font* gFont;
 SDL_Point g_CursorPos;
 int g_MouseState;
 int g_WaitKey = -1;
@@ -728,6 +729,22 @@ void DrawTextColor(int x, int y, const std::string& text, uint32_t color, int al
 	SetBkMode(hdcCMain, TRANSPARENT);
 	SetTextColor(hdcCMain, color);
 	TextOut(hdcCMain, x, y, text.c_str(), (int)text.size());
+
+	// SDL
+	SDL_Color sdlColor = {
+		(color >> 0) & 0xff,
+		(color >> 8) & 0xff, 
+		(color >> 16) & 0xff,
+	};
+	SDL_Surface *textSurface;
+	if (!(textSurface = TTF_RenderUTF8_Blended(gFont, text.c_str(), sdlColor))) {
+		std::cout << "TTF_RenderUTF8_Solid(" << text.c_str() << ") failed:" << TTF_GetError() << std::endl;
+	}
+	else {
+		SDL_Rect r = { x, y, textSurface->w, textSurface->h };
+		SDL_BlitSurface(textSurface, NULL, drawSurface, &r);
+		SDL_FreeSurface(textSurface);
+	}
 }
 
 
@@ -782,6 +799,19 @@ void InterfaceSetFont(HFONT font)
 	}
 	else {
 		hfntOld = (HFONT)SelectObject(hdcCMain, font);
+	}
+
+	if (font == fnt_Small) {
+		gFont = fontSmall;
+	}
+	else if (font == fnt_Big) {
+		gFont = fontBig;
+	}
+	else if (font == fnt_Midd) {
+		gFont = fontMid;
+	}
+	else {
+		gFont = NULL;
 	}
 }
 
@@ -1348,7 +1378,7 @@ void DrawMenuHunt()
 		}
 
 		DrawTextShadow(MenuHunt[2].Rect.x + 4, MenuHunt[2].Rect.y + (16 * i), g_WeapInfo[ii].m_Name, c);
-		DrawTextShadow(MenuHunt[2].Rect.x - MenuHunt[2].Rect.w + 4, MenuHunt[2].Rect.y + (16 * i), sc.str(), c, DTA_RIGHT);
+		DrawTextShadow(MenuHunt[2].Rect.x + MenuHunt[2].Rect.w - 4, MenuHunt[2].Rect.y + (16 * i), sc.str(), c, DTA_RIGHT);
 	}
 
 	for (unsigned ii = MenuHunt[3].Offset; ii < MenuHunt[3].Offset + MenuHunt[3].Item.size(); ii++)
