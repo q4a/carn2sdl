@@ -76,6 +76,7 @@ TTF_Font* gFont;
 SDL_Point g_CursorPos;
 int g_MouseState;
 int g_WaitKey = -1;
+uint32_t gCurrColor; // This is a "full" 32bit RGB(a) color, as created with RGB(r,g,b)
 
 // String table
 const char g_GitHubURL[] = "https://github.com/carnivores-cpe/Carn2-Menu";
@@ -373,6 +374,8 @@ void InitInterface()
 		return;
 	}
 
+	gFont = fontMid;
+
 	g_PrevMenuState = -1;
 	g_MenuState = 0;
 	g_TypingBuffer = "";
@@ -526,13 +529,36 @@ void ShutdownInterface()
 	std::cout << "Interface: Shutdown Ok!" << std::endl;
 }
 
-
 void _Line(HDC hdc, int x1, int y1, int x2, int y2)
 {
+	// Win32
 	MoveToEx(hdc, x1, y1, NULL);
 	LineTo(hdc, x2, y2);
-}
 
+	SDL_Color rgbColor = {
+		(gCurrColor >> 0) & 0xff,
+		(gCurrColor >> 8) & 0xff,
+		(gCurrColor >> 16) & 0xff,
+	};
+
+	uint16_t color565 = HIRGB(rgbColor.r >> 3, rgbColor.g >> 3, rgbColor.b >> 3);
+
+	int dx = abs(x2 - x1);
+	int dy = abs(y2 - y1);
+
+	int step = (dx >= dy) ? dx : dy;
+	dx = dx / step;
+	dy = dy / step;
+
+	int x = x1;
+	int y = y1;
+
+	for (int i = 0; i <= step; i++) {
+		*(((uint16_t*)drawSurface->pixels) + y * 800 + x) = color565;
+		x += dx;
+		y += dy;
+	}
+}
 
 void DrawProgressBar(int x, int y, float l)
 {
@@ -545,6 +571,7 @@ void DrawProgressBar(int x, int y, float l)
 	HBRUSH oldbrs = (HBRUSH)SelectObject(hdcCMain, GetStockObject(BLACK_BRUSH));
 
 
+	gCurrColor = RGB(0,0,0);
 	x += 1; y += 1;
 	_Line(hdcCMain, x, y - 9, x + W + 1, y - 9);
 	_Line(hdcCMain, x, y, x + W + 1, y);
@@ -554,6 +581,7 @@ void DrawProgressBar(int x, int y, float l)
 	_Line(hdcCMain, x + W / 4, y - 8, x + W / 4, y);
 	_Line(hdcCMain, x + W * 3 / 4, y - 8, x + W * 3 / 4, y);
 
+	gCurrColor = 0x009F9F9F;
 	x -= 1; y -= 1;
 	SelectObject(hdcCMain, wp);
 	_Line(hdcCMain, x, y - 9, x + W + 1, y - 9);
@@ -566,10 +594,11 @@ void DrawProgressBar(int x, int y, float l)
 
 	W -= 2;
 	PatBlt(hdcCMain, x + 2, y - 5, (int)(W * l / 2.f), 4, PATCOPY);
+	DrawRectangle(x + 2, y - 5, (int)(W * l / 2.f), 4, 0x003FAF3F);
 
 	SelectObject(hdcCMain, wb);
 	PatBlt(hdcCMain, x + 1, y - 6, (int)(W * l / 2.f), 4, PATCOPY);
-
+	DrawRectangle(x + 1, y - 6, (int)(W * l / 2.f), 4, 0x003FAF3F);
 
 	SelectObject(hdcCMain, oldpen);
 	SelectObject(hdcCMain, oldbrs);
@@ -578,15 +607,23 @@ void DrawProgressBar(int x, int y, float l)
 }
 
 
-void DrawRectangle(int x, int y, int w, int h, Color16 c)
+void DrawRectangle(int x, int y, int w, int h, int color)
 {
-	Color16* back_buffer = static_cast<Color16*>(lpVideoBuf);
-	for (int i = y; i < y + h; i++)
-		for (int j = x; j < x + w; j++)
-		{
-			back_buffer[(j)+(i * 800)] = Color16(c, 1);
-			//*((uint16_t*)lpVideoBuf + (j)+(i) * 800) = c | 0x8000;
+	uint16_t* back_buffer = (uint16_t*)drawSurface->pixels;
+
+	SDL_Color rgbColor = {
+		(color >> 0) & 0xff,
+		(color >> 8) & 0xff,
+		(color >> 16) & 0xff,
+	};
+
+	uint16_t color565 = HIRGB(rgbColor.r >> 3, rgbColor.g >> 3, rgbColor.b >> 3);
+
+	for (int i = y; i < y + h -1; i++) {
+		for (int j = x; j < x + w -1; j++) {
+			back_buffer[j + (i * 800)] = color565;
 		}
+	}
 }
 
 
@@ -607,6 +644,7 @@ void DrawSliderBar(int x, int y, int w, float v, int slider_rgb = RGB(239, 228, 
 	HBRUSH oldbrs = (HBRUSH)SelectObject(hdcCMain, GetStockObject(BLACK_BRUSH));
 
 	// Draw track
+	gCurrColor = RGB(0,0,0);
 	_Line(hdcCMain, x, y - 4, x + w + 1, y - 4);
 	_Line(hdcCMain, x, y - 3, x + w + 1, y - 3);
 	_Line(hdcCMain, x, y - 2, x + w + 1, y - 2);
@@ -618,6 +656,7 @@ void DrawSliderBar(int x, int y, int w, float v, int slider_rgb = RGB(239, 228, 
 
 	SelectObject(hdcCMain, wb);
 	PatBlt(hdcCMain, xs, y - 4, 6, 8, PATCOPY);
+	DrawRectangle(xs, y - 4, 6, 8, slider_rgb);
 
 	SelectObject(hdcCMain, oldpen);
 	SelectObject(hdcCMain, oldbrs);
@@ -781,11 +820,13 @@ void DrawURLShadow(int x, int y, const std::string& text, uint32_t color, int al
 	HPEN oldpen = (HPEN)SelectObject(hdcCMain, GetStockObject(BLACK_PEN));
 
 	DrawTextColor(x + 1, y + 1, text, 0x000000);
+	gCurrColor = RGB(0, 0, 0);
 	_Line(hdcCMain, x + 1, y + H + 1, x + W + 1, y + H + 1);
 
 	SelectObject(hdcCMain, wp);
 
 	DrawTextColor(x, y, text, color);
+	gCurrColor = color;
 	_Line(hdcCMain, x, y + H, x + W, y + H);
 
 	SelectObject(hdcCMain, oldpen);
@@ -811,7 +852,7 @@ void InterfaceSetFont(HFONT font)
 		gFont = fontMid;
 	}
 	else {
-		gFont = NULL;
+		gFont = fontMid; // restore old font, assuming mid
 	}
 }
 

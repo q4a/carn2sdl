@@ -632,7 +632,7 @@ void ShutdownInterface();
 void InterfaceClear(uint16_t);
 void InterfaceBlt();
 void InterfaceSetFont(HFONT);
-void DrawRectangle(int, int, int, int, Color16);
+void DrawRectangle(int, int, int, int, int);
 void DrawPicture(int, int, int, int, uint16_t*);
 void DrawTextShadow(int x, int y, const std::string& text, uint32_t color, int align);
 void LoadGameMenu(int32_t);
