@@ -9,7 +9,12 @@
 
 #include "Targa.h"
 
+#ifdef _WIN32
 #include <Windows.h>
+// Undef min/max to prevent errors with std::min/std::max
+#undef min
+#undef max
+#endif
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -107,31 +112,6 @@ enum AudioSystemEnum {
 // ======================================================================= //
 // Global Types & Classes
 // ======================================================================= //
-
-#pragma pack(push, 1)
-struct Color16 {
-	int r : 5;
-	int g : 5;
-	int b : 5;
-	int a : 1;
-
-	Color16(Color16 c, int a) :
-		r(c.r),
-		g(c.g),
-		b(c.b),
-		a(a)
-	{}
-
-	Color16(uint16_t c, int a) :
-		r(c & 5),
-		g((c >> 5) & 5),
-		b((c >> 10) & 5),
-		a(a)
-	{}
-};
-#pragma pack(pop)
-typedef Color16 RGBA16;
-
 
 class TargaImage
 {
@@ -574,19 +554,7 @@ enum MenuStateEnum {
 // ======================================================================= //
 EXTERNAL SDL_Window*			window;
 EXTERNAL SDL_Surface*			screenSurface;
-EXTERNAL SDL_Surface*			drawSurface;
-EXTERNAL TTF_Font*				fontSmall;
-EXTERNAL TTF_Font*				fontMid;
-EXTERNAL TTF_Font*				fontBig;
-
-EXTERNAL HINSTANCE				hInst;
-EXTERNAL HWND					hwndMain;
-EXTERNAL HDC					hdcMain;
-EXTERNAL HFONT					fnt_Small;
-EXTERNAL HFONT					fnt_Midd;
-EXTERNAL HFONT					g_FontOptions;
-EXTERNAL HFONT					fnt_Big;
-
+EXTERNAL bool                   g_QuitRequested;
 EXTERNAL MenuItem				g_MenuItem;
 EXTERNAL std::int32_t			g_PrevMenuState;
 EXTERNAL std::int32_t			g_MenuState;
@@ -621,23 +589,18 @@ EXTERNAL SoundFX				g_MenuSound_Move;
 // Global Functions
 // ======================================================================= //
 
-int LaunchProcess(const std::string& exe_name, std::string cmd_line);
+int LaunchProcess(const std::string& exe_name, std::vector<std::string> args);
 void ShowErrorMessage(const std::string&);
 void PrintLogSeparater();
-void HuntWindowResize();
 
 /*** Menu ***/
 void InitInterface();
 void ShutdownInterface();
 void InterfaceClear(uint16_t);
 void InterfaceBlt();
-void InterfaceSetFont(HFONT);
-void DrawRectangle(int, int, int, int, int);
-void DrawPicture(int, int, int, int, uint16_t*);
-void DrawTextShadow(int x, int y, const std::string& text, uint32_t color, int align);
 void LoadGameMenu(int32_t);
 void ChangeMenuState(int32_t);
-void MenuKeyCharEvent(uint16_t);
+void MenuKeyCharEvent(SDL_Keycode);
 void MenuMouseScrollEvent(int32_t, int32_t);
 void ProcessMenu();
 
@@ -655,7 +618,7 @@ bool LoadWave(SoundFX& sfx, const std::string& path);
 
 /*** Audio ***/
 void Audio_Shutdown();
-void InitAudioSystem(HWND hw, HANDLE hlog, int  driver);
+//void InitAudioSystem(HWND hw, HANDLE hlog, int  driver);
 void AudioStop();
 void Audio_Restore();
 void AudioSetCameraPos(float cx, float cy, float cz, float ca, float cb);

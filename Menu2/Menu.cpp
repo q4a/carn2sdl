@@ -60,18 +60,22 @@ enum DrawTextAlignEnum {
 };
 
 
+// Private prototypes
+void InterfaceSetFont(TTF_Font*);
+void DrawRectangle(int, int, int, int, int);
+void DrawPicture(int, int, int, int, uint16_t*);
+void DrawTextShadow(int x, int y, const std::string& text, uint32_t color, int align);
+
 std::pair<unsigned, unsigned> g_HuntInfo;
 Picture g_TrackBar[2];
 MenuSet MenuOptions[3];
 MenuSet MenuRegistry;
 MenuSet MenuHunt[4];
 
-void* lpVideoBuf;
-HDC hdcCMain;
-HBITMAP bmpMain;
-HBITMAP hbmpOld;
-HFONT hfntOld;
-
+SDL_Surface* drawSurface;
+TTF_Font* fontSmall;
+TTF_Font* fontMid;
+TTF_Font* fontBig;
 TTF_Font* gFont;
 SDL_Point g_CursorPos;
 int g_MouseState;
@@ -156,19 +160,19 @@ void ChangeMenuState(int32_t ms)
 }
 
 
-int GetTextW(HDC hdc, const std::string& s)
+int GetTextW(const std::string& s)
 {
-	SIZE sz;
-	GetTextExtentPoint(hdc, s.c_str(), (int)s.length(), &sz);
-	return sz.cx;
+	int w = 0;
+	TTF_SizeText(gFont, s.c_str(), &w, NULL);
+	return w;
 }
 
 
-int GetTextH(HDC hdc, const std::string& s)
+int GetTextH(const std::string& s)
 {
-	SIZE sz;
-	GetTextExtentPoint(hdc, s.c_str(), (int)s.length(), &sz);
-	return sz.cy;
+	int h = 0;
+	TTF_SizeText(gFont, s.c_str(), NULL, &h);
+	return h;
 }
 
 
@@ -227,16 +231,15 @@ int32_t CalculateDebit()
 
 /*
 Currently unused
-*/
 void CALLBACK WaveOutProc(HWAVEOUT hwo, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
 {
 
 }
+*/
 
 
 /*
 Currently unused
-*/
 void AudioSoftThread()
 {
 	HWAVEOUT hwo;
@@ -303,6 +306,7 @@ void AudioSoftThread()
 
 	waveOutClose(hwo);
 }
+*/
 
 
 /*
@@ -310,71 +314,35 @@ Initialise all the required settings and interface elements
 */
 void InitInterface()
 {
-	std::cout << "Interface: Creating GDI Font handles..." << std::endl;
-	fnt_Big = CreateFont(
-		23, 10, 0, 0,
-		600, 0, 0, 0,
-		ANSI_CHARSET,
-		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, NULL);
+	std::cout << "Interface: Creating Fonts..." << std::endl;
 
-	g_FontOptions = CreateFont(
-		21, 9, 0, 0,
-		500, 0, 0, 0,
-		ANSI_CHARSET,
-		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, NULL);
+	if (TTF_Init() < 0) {
+		std::stringstream ss;
+		ss << "Failed to initialize TTF: " << TTF_GetError() << std::endl;
+		throw std::runtime_error(ss.str());
+	}
 
-	fnt_Small = CreateFont(
-		14, 5, 0, 0,
-		100, 0, 0, 0,
-		ANSI_CHARSET,
-		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, NULL);
-
-	fnt_Midd = CreateFont(
-		16, 7, 0, 0,
-		550, 0, 0, 0,
-		ANSI_CHARSET,
-		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, NULL);
-
-	if (!fnt_Small)
+	fontSmall = TTF_OpenFont("LibreBaskerville-Regular.ttf", 10);
+	fontMid = TTF_OpenFont("LibreBaskerville-Regular.ttf", 12);
+	fontBig = TTF_OpenFont("LibreBaskerville-Regular.ttf", 18);
+	if (!fontSmall)
 		std::cout << "Interface : Failed to create Small Font" << std::endl;
-	if (!fnt_Midd)
+	if (!fontMid)
 		std::cout << "Interface : Failed to create Medium Font" << std::endl;
-	if (!g_FontOptions)
-		std::cout << "Interface : Failed to create Options Font" << std::endl;
-	if (!fnt_Big)
+	if (!fontBig)
 		std::cout << "Interface : Failed to create Large Font" << std::endl;
 
-	hdcCMain = CreateCompatibleDC(hdcMain);
-
-	if (hdcCMain == NULL)
-	{
-		throw std::runtime_error("Interface: Failed to create CompatibleDC!");
-		return;
-	}
-
-	BITMAPINFOHEADER bmih;
-	bmih.biSize = sizeof(BITMAPINFOHEADER);
-	bmih.biWidth = 800;
-	bmih.biHeight = -600;
-	bmih.biPlanes = 1;
-	bmih.biBitCount = 16;
-	bmih.biCompression = BI_RGB;
-	bmih.biSizeImage = 0;
-	bmih.biXPelsPerMeter = 400;
-	bmih.biYPelsPerMeter = 400;
-	bmih.biClrUsed = 0;
-	bmih.biClrImportant = 0;
-
-	BITMAPINFO binfo;
-	binfo.bmiHeader = bmih;
-	bmpMain = CreateDIBSection(hdcMain, &binfo, DIB_RGB_COLORS, &lpVideoBuf, NULL, 0);
-
-	if (!bmpMain) {
-		throw std::runtime_error("Interface: Failed to create DIB Section!");
-		return;
-	}
-
+	// Default font is mid size
 	gFont = fontMid;
+
+	drawSurface = SDL_CreateRGBSurface(0, 800, 600, 16,
+		0x1f << 10,
+		0x1f << 5,
+		0x1f,
+		0x00);
+	if (!drawSurface) {
+		throw std::runtime_error("Interface: Failed to create draw surface!");
+	}
 
 	g_PrevMenuState = -1;
 	g_MenuState = 0;
@@ -512,29 +480,17 @@ void ShutdownInterface()
 {
 	//PlaySound(NULL, NULL, SND_NODEFAULT);
 
-	if (bmpMain)
-		DeleteObject((HBITMAP)bmpMain);
-	if (hdcCMain)
-		DeleteDC(hdcCMain);
-
-	if (fnt_Small)
-		DeleteObject(fnt_Small);
-	if (fnt_Midd)
-		DeleteObject(fnt_Midd);
-	if (fnt_Big)
-		DeleteObject(fnt_Big);
-	if (g_FontOptions)
-		DeleteObject(g_FontOptions);
+	TTF_CloseFont(fontBig);
+	TTF_CloseFont(fontMid);
+	TTF_CloseFont(fontSmall);
+	TTF_Quit();
+	gFont = NULL;
 
 	std::cout << "Interface: Shutdown Ok!" << std::endl;
 }
 
-void _Line(HDC hdc, int x1, int y1, int x2, int y2)
+void _Line(int x1, int y1, int x2, int y2)
 {
-	// Win32
-	MoveToEx(hdc, x1, y1, NULL);
-	LineTo(hdc, x2, y2);
-
 	SDL_Color rgbColor = {
 		(gCurrColor >> 0) & 0xff,
 		(gCurrColor >> 8) & 0xff,
@@ -564,46 +520,29 @@ void DrawProgressBar(int x, int y, float l)
 {
 	int W = 120; y += 13;
 
-	HPEN wp = CreatePen(PS_SOLID, 0, 0x009F9F9F);
-	HBRUSH wb = CreateSolidBrush(0x003FAF3F);
-
-	HPEN oldpen = (HPEN)SelectObject(hdcCMain, GetStockObject(BLACK_PEN));
-	HBRUSH oldbrs = (HBRUSH)SelectObject(hdcCMain, GetStockObject(BLACK_BRUSH));
-
-
 	gCurrColor = RGB(0,0,0);
 	x += 1; y += 1;
-	_Line(hdcCMain, x, y - 9, x + W + 1, y - 9);
-	_Line(hdcCMain, x, y, x + W + 1, y);
-	_Line(hdcCMain, x, y - 8, x, y);
-	_Line(hdcCMain, x + W, y - 8, x + W, y);
-	_Line(hdcCMain, x + W / 2, y - 8, x + W / 2, y);
-	_Line(hdcCMain, x + W / 4, y - 8, x + W / 4, y);
-	_Line(hdcCMain, x + W * 3 / 4, y - 8, x + W * 3 / 4, y);
+	_Line(x, y - 9, x + W + 1, y - 9);
+	_Line(x, y, x + W + 1, y);
+	_Line(x, y - 8, x, y);
+	_Line(x + W, y - 8, x + W, y);
+	_Line(x + W / 2, y - 8, x + W / 2, y);
+	_Line(x + W / 4, y - 8, x + W / 4, y);
+	_Line(x + W * 3 / 4, y - 8, x + W * 3 / 4, y);
 
 	gCurrColor = 0x009F9F9F;
 	x -= 1; y -= 1;
-	SelectObject(hdcCMain, wp);
-	_Line(hdcCMain, x, y - 9, x + W + 1, y - 9);
-	_Line(hdcCMain, x, y, x + W + 1, y);
-	_Line(hdcCMain, x, y - 8, x, y);
-	_Line(hdcCMain, x + W, y - 8, x + W, y);
-	_Line(hdcCMain, x + W / 2, y - 8, x + W / 2, y);
-	_Line(hdcCMain, x + W / 4, y - 8, x + W / 4, y);
-	_Line(hdcCMain, x + W * 3 / 4, y - 8, x + W * 3 / 4, y);
+	_Line(x, y - 9, x + W + 1, y - 9);
+	_Line(x, y, x + W + 1, y);
+	_Line(x, y - 8, x, y);
+	_Line(x + W, y - 8, x + W, y);
+	_Line(x + W / 2, y - 8, x + W / 2, y);
+	_Line(x + W / 4, y - 8, x + W / 4, y);
+	_Line(x + W * 3 / 4, y - 8, x + W * 3 / 4, y);
 
 	W -= 2;
-	PatBlt(hdcCMain, x + 2, y - 5, (int)(W * l / 2.f), 4, PATCOPY);
 	DrawRectangle(x + 2, y - 5, (int)(W * l / 2.f), 4, 0x003FAF3F);
-
-	SelectObject(hdcCMain, wb);
-	PatBlt(hdcCMain, x + 1, y - 6, (int)(W * l / 2.f), 4, PATCOPY);
 	DrawRectangle(x + 1, y - 6, (int)(W * l / 2.f), 4, 0x003FAF3F);
-
-	SelectObject(hdcCMain, oldpen);
-	SelectObject(hdcCMain, oldbrs);
-	DeleteObject(wp);
-	DeleteObject(wb);
 }
 
 
@@ -636,32 +575,18 @@ void DrawSliderBar(int x, int y, int w, float v, int slider_rgb = RGB(239, 228, 
 
 	int xs = (int)(x + ((w - 2) * v));
 
-	//HPEN wp = CreatePen(PS_SOLID, 0, 0x009F9F9F);
-
-	HBRUSH wb = CreateSolidBrush(slider_rgb);// RGB(239, 228, 176));
-
-	HPEN oldpen = (HPEN)SelectObject(hdcCMain, GetStockObject(BLACK_PEN));
-	HBRUSH oldbrs = (HBRUSH)SelectObject(hdcCMain, GetStockObject(BLACK_BRUSH));
-
 	// Draw track
 	gCurrColor = RGB(0,0,0);
-	_Line(hdcCMain, x, y - 4, x + w + 1, y - 4);
-	_Line(hdcCMain, x, y - 3, x + w + 1, y - 3);
-	_Line(hdcCMain, x, y - 2, x + w + 1, y - 2);
-	_Line(hdcCMain, x, y - 1, x + w + 1, y - 1);
-	_Line(hdcCMain, x, y + 0, x + w + 1, y + 0);
-	_Line(hdcCMain, x, y + 1, x + w + 1, y + 1);
-	_Line(hdcCMain, x, y + 2, x + w + 1, y + 2);
-	_Line(hdcCMain, x, y + 3, x + w + 1, y + 3);
+	_Line(x, y - 4, x + w + 1, y - 4);
+	_Line(x, y - 3, x + w + 1, y - 3);
+	_Line(x, y - 2, x + w + 1, y - 2);
+	_Line(x, y - 1, x + w + 1, y - 1);
+	_Line(x, y + 0, x + w + 1, y + 0);
+	_Line(x, y + 1, x + w + 1, y + 1);
+	_Line(x, y + 2, x + w + 1, y + 2);
+	_Line(x, y + 3, x + w + 1, y + 3);
 
-	SelectObject(hdcCMain, wb);
-	PatBlt(hdcCMain, xs, y - 4, 6, 8, PATCOPY);
 	DrawRectangle(xs, y - 4, 6, 8, slider_rgb);
-
-	SelectObject(hdcCMain, oldpen);
-	SelectObject(hdcCMain, oldbrs);
-	//DeleteObject(wp);
-	DeleteObject(wb);
 }
 
 
@@ -670,25 +595,9 @@ void DrawPicture(int x, int y, Picture& pic)
 	if (pic.m_Data == nullptr || pic.m_Width == 0 || pic.m_Height == 0)
 		return;
 
-	/*for (int y = 0; y < 600; y++) {
-		memcpy((uint16_t*)lpVideoBuf + (y * 800), &menu.m_Image[(600 - y - 1) * 800], 800 * 2);
-	}*/
-
-	for (auto i = 0U; i < pic.m_Height; i++) {
-		memcpy((uint16_t*)lpVideoBuf + x + (y + i) * 800U, pic.m_Data + (pic.m_Height - i - 1) * pic.m_Width, pic.m_Width * 2);
-	}
-
-	// SDL
 	for (auto i = 0U; i < pic.m_Height; i++) {
 		memcpy((uint16_t*)drawSurface->pixels + x + (y + i) * 800U, pic.m_Data + (pic.m_Height - i - 1) * pic.m_Width, pic.m_Width * 2);
 	}
-}
-
-
-void DrawPicture(int x, int y, int w, int h, uint16_t* lpImage)
-{
-	for (int i = 0; i < h; i++)
-		memcpy((uint16_t*)lpVideoBuf + x + (y + i) * 800, lpImage + (h - i - 1) * w, w * 2);
 }
 
 
@@ -701,11 +610,6 @@ void DrawMenuBg(MenuItem& menu)
 	uint8_t cursor_id = 0;
 
 	cursor_id = menu.GetID((p.x / 2), (p.y / 2));
-
-	// OLD: Render background image
-	/*for (int y = 0; y < 600; y++) {
-		memcpy((uint16_t*)lpVideoBuf + (y * 800), &menu.m_Image[(600 - y - 1) * 800], 800 * 2);
-	}*/
 
 	// Render the base background from the on/off states
 	for (int yy = 0; yy < 300; yy++) {
@@ -728,20 +632,6 @@ void DrawMenuBg(MenuItem& menu)
 			if (id2 == 0) on = false;
 
 			if (on) {
-				*((uint16_t*)lpVideoBuf + ((x + 0L) + (y + 0L) * 800L)) = menu.m_Image_On[(x + 0) + (600 - (y + 0) - 1) * 800];
-				*((uint16_t*)lpVideoBuf + ((x + 1L) + (y + 0L) * 800L)) = menu.m_Image_On[(x + 1) + (600 - (y + 0) - 1) * 800];
-				*((uint16_t*)lpVideoBuf + ((x + 0L) + (y + 1L) * 800L)) = menu.m_Image_On[(x + 0) + (600 - (y + 1) - 1) * 800];
-				*((uint16_t*)lpVideoBuf + ((x + 1L) + (y + 1L) * 800L)) = menu.m_Image_On[(x + 1) + (600 - (y + 1) - 1) * 800];
-			}
-			else {
-				*((uint16_t*)lpVideoBuf + ((x + 0L) + (y + 0L) * 800L)) = menu.m_Image[(x + 0) + (600 - (y + 0) - 1) * 800];
-				*((uint16_t*)lpVideoBuf + ((x + 1L) + (y + 0L) * 800L)) = menu.m_Image[(x + 1) + (600 - (y + 0) - 1) * 800];
-				*((uint16_t*)lpVideoBuf + ((x + 0L) + (y + 1L) * 800L)) = menu.m_Image[(x + 0) + (600 - (y + 1) - 1) * 800];
-				*((uint16_t*)lpVideoBuf + ((x + 1L) + (y + 1L) * 800L)) = menu.m_Image[(x + 1) + (600 - (y + 1) - 1) * 800];
-			}
-
-			// SDL
-			if (on) {
 				*((uint16_t*)drawSurface->pixels + ((x + 0L) + (y + 0L) * 800L)) = menu.m_Image_On[(x + 0) + (600 - (y + 0) - 1) * 800];
 				*((uint16_t*)drawSurface->pixels + ((x + 1L) + (y + 0L) * 800L)) = menu.m_Image_On[(x + 1) + (600 - (y + 0) - 1) * 800];
 				*((uint16_t*)drawSurface->pixels + ((x + 0L) + (y + 1L) * 800L)) = menu.m_Image_On[(x + 0) + (600 - (y + 1) - 1) * 800];
@@ -760,14 +650,15 @@ void DrawMenuBg(MenuItem& menu)
 
 void DrawTextColor(int x, int y, const std::string& text, uint32_t color, int align = DTA_LEFT)
 {
-	if (align == DTA_RIGHT)
-	{
-		x -= GetTextW(hdcCMain, text);
+	// Nothing to do, skip out early
+	if (text.length() == 0) {
+		return;
 	}
 
-	SetBkMode(hdcCMain, TRANSPARENT);
-	SetTextColor(hdcCMain, color);
-	TextOut(hdcCMain, x, y, text.c_str(), (int)text.size());
+	if (align == DTA_RIGHT)
+	{
+		x -= GetTextW(text);
+	}
 
 	// SDL
 	SDL_Color sdlColor = {
@@ -791,7 +682,7 @@ void DrawTextShadow(int x, int y, const std::string& text, uint32_t color, int a
 {
 	if (align == DTA_RIGHT)
 	{
-		x -= GetTextW(hdcCMain, text);
+		x -= GetTextW(text);
 	}
 
 	DrawTextColor(x + 1, y + 1, text, RGB(0, 0, 0));
@@ -801,8 +692,8 @@ void DrawTextShadow(int x, int y, const std::string& text, uint32_t color, int a
 
 void DrawURLShadow(int x, int y, const std::string& text, uint32_t color, int align = DTA_LEFT)
 {
-	int W = GetTextW(hdcCMain, text);
-	int H = GetTextH(hdcCMain, text);
+	int W = GetTextW(text);
+	int H = GetTextH(text);
 
 	if (align == DTA_RIGHT)
 	{
@@ -816,63 +707,31 @@ void DrawURLShadow(int x, int y, const std::string& text, uint32_t color, int al
 		color = RGB(244, 10, 10);
 	}
 
-	HPEN wp = CreatePen(PS_SOLID, 0, color);
-	HPEN oldpen = (HPEN)SelectObject(hdcCMain, GetStockObject(BLACK_PEN));
-
 	DrawTextColor(x + 1, y + 1, text, 0x000000);
 	gCurrColor = RGB(0, 0, 0);
-	_Line(hdcCMain, x + 1, y + H + 1, x + W + 1, y + H + 1);
-
-	SelectObject(hdcCMain, wp);
+	_Line(x + 1, y + H + 1, x + W + 1, y + H + 1);
 
 	DrawTextColor(x, y, text, color);
 	gCurrColor = color;
-	_Line(hdcCMain, x, y + H, x + W, y + H);
-
-	SelectObject(hdcCMain, oldpen);
+	_Line(x, y + H, x + W, y + H);
 }
 
 
-void InterfaceSetFont(HFONT font)
+void InterfaceSetFont(TTF_Font* font)
 {
-	if (font == NULL) {
-		SelectObject(hdcCMain, hfntOld);
-	}
-	else {
-		hfntOld = (HFONT)SelectObject(hdcCMain, font);
-	}
-
-	if (font == fnt_Small) {
-		gFont = fontSmall;
-	}
-	else if (font == fnt_Big) {
-		gFont = fontBig;
-	}
-	else if (font == fnt_Midd) {
-		gFont = fontMid;
-	}
-	else {
-		gFont = fontMid; // restore old font, assuming mid
-	}
+	gFont = font;
 }
 
 
 void InterfaceClear(WORD Color)
 {
-	memset(lpVideoBuf, 0, (800 * 2) * 600);
 	memset(drawSurface->pixels, 0, (800 * 2) * 600);
-	hbmpOld = (HBITMAP)SelectObject(hdcCMain, bmpMain);
-	hfntOld = (HFONT)SelectObject(hdcCMain, fnt_Small);
 }
 
 void InterfaceBlt()
 {
 	SDL_BlitSurface(drawSurface, NULL, screenSurface, NULL);
 	SDL_UpdateWindowSurface(window);
-
-	BitBlt(hdcMain, 0, 0, 800, 600, hdcCMain, 0, 0, SRCCOPY);
-	SelectObject(hdcCMain, hfntOld);
-	SelectObject(hdcCMain, hbmpOld);
 }
 
 
@@ -1125,7 +984,7 @@ void DrawMenuProfile()
 
 	int c = RGB(239, 228, 176);
 
-	InterfaceSetFont(fnt_Big);
+	InterfaceSetFont(fontBig);
 	DrawTextShadow(90, 9, g_UserProfile.Name, c);
 
 	ss << g_UserProfile.Score;
@@ -1155,7 +1014,7 @@ void DrawMenuStatistics()
 	std::stringstream ss;
 	int c = RGB(239, 228, 176);
 
-	InterfaceSetFont(fnt_Midd);
+	InterfaceSetFont(fontMid);
 	int  ttm = (int)g_UserProfile.Total.time;
 	int  ltm = (int)g_UserProfile.Last.time;
 
@@ -1252,7 +1111,7 @@ void DrawMenuCredits()
 		/* Please do not remove this name */ "Rexhunter99"
 	};
 
-	InterfaceSetFont(fnt_Small);
+	InterfaceSetFont(fontSmall);
 
 	DrawURLShadow(550, 42, g_GitHubURL, RGB(126, 178, 239));
 
@@ -1276,17 +1135,17 @@ void DrawMenuHunt()
 		DrawPicture(38, 73, *g_HuntSelectPic);
 	}
 
-	InterfaceSetFont(fnt_Big);
+	InterfaceSetFont(fontBig);
 
-	ss << (min(9999, max(0, g_UserProfile.Score)));
+	ss << (std::min(9999, std::max(0, g_UserProfile.Score)));
 	DrawTextShadow(328 + 8, 38, ss.str(), c, DTA_LEFT);
 	ss.str(""); ss.clear();
 
-	ss << (min(9999, max(-999, (g_UserProfile.Score - g_ScoreDebit))));
+	ss << (std::min(9999, std::max(-999, (g_UserProfile.Score - g_ScoreDebit))));
 	DrawTextShadow(472 - 8, 38, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
-	InterfaceSetFont(fnt_Midd);
+	InterfaceSetFont(fontMid);
 
 
 	if (g_HuntInfo.first == 0) // Areas
@@ -1310,9 +1169,9 @@ void DrawMenuHunt()
 			DrawTextShadow(424, 210 + (1 * 16), "Hearing:", c);
 			DrawTextShadow(424, 210 + (2 * 16), "Scents:", c);
 
-			DrawProgressBar(424 + 80, 210 + (0 * 16), min(1.0f, max(0.0f, g_DinoInfo[d].m_LookK)) * 2.f);
-			DrawProgressBar(424 + 80, 210 + (1 * 16), min(1.0f, max(0.0f, g_DinoInfo[d].m_HearK)) * 2.f);
-			DrawProgressBar(424 + 80, 210 + (2 * 16), min(1.0f, max(0.0f, g_DinoInfo[d].m_SmellK)) * 2.f);
+			DrawProgressBar(424 + 80, 210 + (0 * 16), std::min(1.0f, std::max(0.0f, g_DinoInfo[d].m_LookK)) * 2.f);
+			DrawProgressBar(424 + 80, 210 + (1 * 16), std::min(1.0f, std::max(0.0f, g_DinoInfo[d].m_HearK)) * 2.f);
+			DrawProgressBar(424 + 80, 210 + (2 * 16), std::min(1.0f, std::max(0.0f, g_DinoInfo[d].m_SmellK)) * 2.f);
 		}
 	}
 	else if (g_HuntInfo.first == 2) // Weapons
@@ -1326,9 +1185,9 @@ void DrawMenuHunt()
 		DrawTextShadow(424, 210 + (1 * 16), "Accuracy:", c);
 		DrawTextShadow(424, 210 + (2 * 16), "Volume:", c);
 
-		DrawProgressBar(424 + 80, 210 + (0 * 16), min(2.0f, max(0.0f, g_WeapInfo[g_HuntInfo.second].m_Power)));
-		DrawProgressBar(424 + 80, 210 + (1 * 16), min(2.0f, max(0.0f, g_WeapInfo[g_HuntInfo.second].m_Prec)));
-		DrawProgressBar(424 + 80, 210 + (2 * 16), min(2.0f, max(0.0f, g_WeapInfo[g_HuntInfo.second].m_Loud)));
+		DrawProgressBar(424 + 80, 210 + (0 * 16), std::min(2.0f, std::max(0.0f, g_WeapInfo[g_HuntInfo.second].m_Power)));
+		DrawProgressBar(424 + 80, 210 + (1 * 16), std::min(2.0f, std::max(0.0f, g_WeapInfo[g_HuntInfo.second].m_Prec)));
+		DrawProgressBar(424 + 80, 210 + (2 * 16), std::min(2.0f, std::max(0.0f, g_WeapInfo[g_HuntInfo.second].m_Loud)));
 	}
 	else if (g_HuntInfo.first == 3) // Accessories
 	{
@@ -1338,11 +1197,11 @@ void DrawMenuHunt()
 		}
 	}
 
-	InterfaceSetFont(fnt_Small);
+	InterfaceSetFont(fontSmall);
 
 	int32_t score = g_UserProfile.Score - g_ScoreDebit;
 
-	unsigned list_max = min(g_AreaInfo.size(), 10);
+	unsigned list_max = std::min(g_AreaInfo.size(), (size_t)10);
 
 	for (unsigned ii = MenuHunt[0].Offset; ii < MenuHunt[0].Offset + list_max; ii++) {
 		int i = ii - MenuHunt[0].Offset;
@@ -1448,14 +1307,14 @@ void DrawMenuRegistry()
 
 	if (g_MenuState == MENU_REGISTRY_DELETE)
 	{
-		InterfaceSetFont(fnt_Midd);
+		InterfaceSetFont(fontMid);
 		DrawTextShadow(290, 370, "Do you want to delete player", 0x00B08030);
 		ss << "\'" << g_Profiles[g_ProfileIndex].m_Name << "\' ?";
 		DrawTextShadow(300, 394, ss.str(), 0x00B08030);
 		InterfaceSetFont(0);
 	}
 	else {
-		InterfaceSetFont(fnt_Small);
+		InterfaceSetFont(fontSmall);
 
 		if ((timeGetTime() % 800) > 300)
 			ss << g_TypingBuffer << "_";
@@ -1522,7 +1381,7 @@ void MenuEventInput(int32_t menu)
 
 		if (g_MouseState & SDL_BUTTON_LMASK) {
 			WaitForMouseRelease();
-			SDL_Rect rc = { 550, 42, 50 + GetTextW(hdcCMain, g_GitHubURL), 14 };
+			SDL_Rect rc = { 550, 42, 50 + GetTextW(g_GitHubURL), 14 };
 
 			if (IsPointInRect(g_CursorPos, rc))
 			{
@@ -1548,7 +1407,6 @@ void MenuEventInput(int32_t menu)
 		}
 
 		if (g_MouseState & SDL_BUTTON_LMASK) {
-			std::cout << "Register LM " << g_MouseState << std::endl;
 			if (id == 1) {
 				//PlaySound("huntdat/soundfx/menugo.wav", NULL, SND_ASYNC | SND_FILENAME);
 
@@ -1563,7 +1421,7 @@ void MenuEventInput(int32_t menu)
 					}
 					else
 					{
-						MessageBox(hwndMain, "You need to enter a name!", "Try again!", MB_OK | MB_ICONINFORMATION);
+						MessageBox(NULL, "You need to enter a name!", "Try again!", MB_OK | MB_ICONINFORMATION);
 					}
 				}
 				else {
@@ -1982,29 +1840,29 @@ void MenuEventInput(int32_t menu)
 						wep |= 1 << i;
 				}
 
-				std::stringstream params("");
+				std::vector<std::string> params;
 
-				params << "reg=" << g_UserProfile.RegNumber;
-				params << " prj=huntdat/areas/" << g_AreaInfo[MenuHunt[0].Selected].m_ProjectName;
-				params << " din=" << din;
-				params << " wep=" << wep;
-				params << " dtm=" << g_TimeOfDay;
+				params.push_back(std::string("reg=") + std::to_string(g_UserProfile.RegNumber));
+				params.push_back(std::string("prj=huntdat/areas/") + g_AreaInfo[MenuHunt[0].Selected].m_ProjectName);
+				params.push_back(std::string("din=") + std::to_string(din));
+				params.push_back(std::string("wep=") + std::to_string(wep));
+				params.push_back(std::string("dtm=") + std::to_string(g_TimeOfDay));
 
 #ifdef _iceage
 				if (MenuHunt[3].Item[4].second)
-					params << " " << g_UtilInfo[4].m_Command;
+					params.push_back(g_UtilInfo[4].m_Command);
 #endif //_iceage
 				if (MenuHunt[3].Item[3].second)
-					params << " " << g_UtilInfo[3].m_Command;
+					params.push_back(g_UtilInfo[3].m_Command);
 				if (g_Options.RadarMode)
-					params << " -radar";
+					params.push_back("-radar");
 				if (g_Options.TranqMode)
-					params << " -tranq";
+					params.push_back("-tranq");
 				if (g_ObserverMode)
-					params << " -observ";
+					params.push_back("-observ");
 
 #ifdef _DEBUG
-				params << " -debug";
+				params.push_back("-debug");
 #endif //_DEBUG
 				std::stringstream renderer("");
 				renderer << g_RendererFile[g_Options.RenderAPI] << ".ren";
@@ -2012,8 +1870,7 @@ void MenuEventInput(int32_t menu)
 				if (wep && din)
 				{
 					TrophySave(g_UserProfile); // Save all the settings
-					std::cout << "Launching...  `> " << renderer.str() << " " << params.str() << "`" << std::endl;
-					LaunchProcess(renderer.str(), params.str());
+					LaunchProcess(renderer.str(), params);
 					TrophyLoad(g_UserProfile, g_UserProfile.RegNumber); // Load the changes
 				}
 				else
@@ -2036,20 +1893,19 @@ void MenuEventInput(int32_t menu)
 				if (id == 1) { ChangeMenuState(MENU_HUNT); }
 				else if (id == 2) { ChangeMenuState(MENU_OPTIONS); }
 				else if (id == 3) {
-					std::stringstream params("");
+					std::vector<std::string> params;
 
-					params << "reg=" << g_UserProfile.RegNumber;
-					params << " prj=huntdat/areas/trophy";
-					params << " dtm=" << 1;
+					params.push_back(std::string("reg=") + std::to_string(g_UserProfile.RegNumber));
+					params.push_back("prj=huntdat/areas/trophy");
+					params.push_back("dtm=1");
 #ifdef _DEBUG
-					params << " -debug";
+					params.push_back("-debug");
 #endif //_DEBUG
 					std::stringstream renderer("");
 					renderer << g_RendererFile[g_Options.RenderAPI] << ".ren";
 
-					std::cout << "Execute: [" << renderer.str() << " " << params.str() << "]" << std::endl;
 					TrophySave(g_UserProfile); // Save the changes
-					LaunchProcess(renderer.str(), params.str());
+					LaunchProcess(renderer.str(), params);
 					TrophyLoad(g_UserProfile, g_UserProfile.RegNumber); // Load the changes
 				}
 				else if (id == 4) { ChangeMenuState(MENU_CREDITS); }
@@ -2076,7 +1932,7 @@ void MenuEventInput(int32_t menu)
 			WaitForMouseRelease();
 			//if (id == 1 || id == 2) PlaySound("huntdat/soundfx/menugo.wav", NULL, SND_ASYNC | SND_FILENAME);
 
-			if (id == 1)      PostQuitMessage(0);
+			if (id == 1)      g_QuitRequested = true;
 			else if (id == 2) ChangeMenuState(MENU_MAIN);
 		}
 	}
@@ -2091,7 +1947,7 @@ void DrawMenuOptions()
 	const int on_c = RGB(30, 239, 30);
 	int c = off_c;
 
-	InterfaceSetFont(g_FontOptions);
+	InterfaceSetFont(fontMid); // XXX!!!!!!  g_FontOptions
 
 	// Game options
 	for (auto i = 0U; i < MenuOptions[OPT_GAME].Item.size(); i++) {
@@ -2238,7 +2094,7 @@ void ProcessMenu()
 	int64_t t = Timer::GetTime();
 	int64_t t_diff = t - g_PrevFrameTime;
 
-	InterfaceSetFont(fnt_Small);
+	InterfaceSetFont(fontSmall);
 
 	std::stringstream ss;
 	ss << "FPS: " << g_FramesPerSecond;
@@ -2280,17 +2136,17 @@ void ProcessMenu()
 }
 
 
-void MenuKeyCharEvent(uint16_t wParam)
+void MenuKeyCharEvent(SDL_Keycode code)
 {
 	if (g_MenuState == MENU_REGISTER) {
-		if (wParam == 8) {
+		if (code == 8) {
 			if (!g_TypingBuffer.empty())
 				g_TypingBuffer.pop_back();
 		}
 		else {
 			if (g_TypingBuffer.size() < 19) {
-				if (wParam >= 32 && wParam <= 128) {
-					g_TypingBuffer.push_back(static_cast<char>(wParam));
+				if (code >= 32 && code <= 128) {
+					g_TypingBuffer.push_back(static_cast<char>(code));
 				}
 			}
 		}

@@ -72,18 +72,25 @@ void PrintLogSeparater()
 	std::cout << std::setfill('=') << std::setw(40) << "=" << std::endl;
 }
 
-
-int LaunchProcess(const std::string& exe_name, std::string cmd_line)
+int LaunchProcess(const std::string& exe_name, std::vector<std::string> args)
 {
+	uint32_t exitCode = 0;
+
+	SDL_MinimizeWindow(window);
+
+#ifdef _WIN32
 	PROCESS_INFORMATION processInformation = { 0 };
 	STARTUPINFO startupInfo = { 0 };
 	startupInfo.cb = sizeof(startupInfo);
-	uint32_t exitCode = 0;
 
-	ShowWindow(hwndMain, SW_MINIMIZE);
+	// Build single string out of args
+	std::stringstream cmd_line;
+	for (auto iter = args.begin(); iter != args.end(); iter++) {
+		cmd_line << " " << (*iter).c_str();
+	}
 
 	// Create the process
-	BOOL result = CreateProcess(exe_name.c_str(), const_cast<char*>(cmd_line.c_str()),
+	BOOL result = CreateProcess(exe_name.c_str(), const_cast<char*>(cmd_line.str().c_str()),
 		NULL, NULL, FALSE,
 		NORMAL_PRIORITY_CLASS,
 		NULL, NULL, &startupInfo, &processInformation);
@@ -91,13 +98,11 @@ int LaunchProcess(const std::string& exe_name, std::string cmd_line)
 	if (!result)
 	{
 		DWORD error = GetLastError();
-		std::cout << "CreateProcess(" << exe_name << ", " << cmd_line << ") failed with error code: " << error << std::endl;
+		std::cout << "CreateProcess(" << exe_name << ", " << cmd_line.str() << ") failed with error code: " << error << std::endl;
 	}
 
 	// Successfully created the process.  Wait for it to finish.
 	WaitForSingleObject(processInformation.hProcess, INFINITE);
-
-	ShowWindow(hwndMain, SW_RESTORE);
 
 	// Get the exit code.
 	result = GetExitCodeProcess(processInformation.hProcess, (DWORD*)&exitCode);
@@ -111,9 +116,11 @@ int LaunchProcess(const std::string& exe_name, std::string cmd_line)
 	// Close the handles.
 	CloseHandle(processInformation.hProcess);
 	CloseHandle(processInformation.hThread);
+#else
+	// Do the *NIX thing (fork/exec)
+#endif
 
-	// Resize the window appropriately
-	HuntWindowResize();
+	SDL_RestoreWindow(window);
 
 	// Reset to the main menu like the original game does
 	ChangeMenuState(MENU_MAIN);
@@ -121,53 +128,8 @@ int LaunchProcess(const std::string& exe_name, std::string cmd_line)
 	return exitCode;
 }
 
-
-LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch (message)
-	{
-	case WM_NCCREATE:
-		return true;
-
-	case WM_CLOSE:
-		PostQuitMessage(0);
-		return 0;
-
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		return 0;
-
-	case WM_MOUSEWHEEL:
-	{
-		//std::cout << "Mouse Wheel Event: " << (int16_t)HIWORD(wParam) << " " << WHEEL_DELTA << std::endl;
-		// HIWORD(wParam) is increments of WHEEL_DATA, positive numbers are scrolling away from the user, negative towards.
-		// 
-		int scroll_mult = (int16_t)HIWORD(wParam) / (int16_t)WHEEL_DELTA;
-		MenuMouseScrollEvent(g_MenuState, scroll_mult);
-	} break;
-
-	case WM_KEYDOWN:
-	{
-		if (wParam == VK_F4) { HuntWindowResize(); }
-#ifdef _DEBUG
-		if (wParam == VK_F9) { PostQuitMessage(1); }
-#endif
-	}
-	break;
-
-	case WM_CHAR:
-		MenuKeyCharEvent(wParam);
-		break;
-
-	default:
-		return (DefWindowProc(hwnd, message, wParam, lParam));
-	}
-
-	return false;
-}
-
-
 std::string errordialog_str = "";
+
 
 INT_PTR CALLBACK ErrorDialogProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -192,12 +154,12 @@ INT_PTR CALLBACK ErrorDialogProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	return false;
 }
 
-
 void ShowErrorMessage(const std::string& error_text)
 {
 	errordialog_str = error_text;
 
-	if (DialogBox(hInst, MAKEINTRESOURCE(IDD_ERROR_DIALOG), hwndMain, &ErrorDialogProc) == IDOK)
+	// XXXX !
+	if (DialogBox(NULL, MAKEINTRESOURCE(IDD_ERROR_DIALOG), NULL, &ErrorDialogProc) == IDOK)
 	{
 		// Save the contents to an 'error.txt' dump
 	}
@@ -207,58 +169,23 @@ void ShowErrorMessage(const std::string& error_text)
 	}
 }
 
-
-void HuntWindowResize()
-{
-	// Resize the window so the client (drawing) area is 800x600, and reposition it to the center of the primary screen
-	int WX = (GetSystemMetrics(SM_CXSCREEN) / 2) - 400;
-	int WY = (GetSystemMetrics(SM_CYSCREEN) / 2) - 300;
-	RECT rc = { WX, WY, WX + 800, WY + 600 };
-	AdjustWindowRect(&rc, GetWindowLong(hwndMain, GWL_STYLE), false);
-	SetWindowPos(hwndMain, HWND_TOP, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, SWP_SHOWWINDOW);
-	UpdateWindow(hwndMain);
-}
-
-
 bool CreateMainWindow()
 {
-	if (TTF_Init() < 0) {
-		std::stringstream ss;
-		ss << "Failed to initialize TTF: " << TTF_GetError() << std::endl;
-		throw std::runtime_error(ss.str());
-	}
-
-	fontSmall = TTF_OpenFont("LibreBaskerville-Regular.ttf", 10);
-	if (!fontSmall) {
-		std::stringstream ss;
-		ss << "Failed to load font: " << TTF_GetError() << std::endl;
-		throw std::runtime_error(ss.str());
-	}
-
-	fontMid = TTF_OpenFont("LibreBaskerville-Regular.ttf", 12);
-	if (!fontMid) {
-		std::stringstream ss;
-		ss << "Failed to load font: " << TTF_GetError() << std::endl;
-		throw std::runtime_error(ss.str());
-	}
-
-	fontBig = TTF_OpenFont("LibreBaskerville-Regular.ttf", 18);
-	if (!fontBig) {
-		std::stringstream ss;
-		ss << "Failed to load font: " << TTF_GetError() << std::endl;
-		throw std::runtime_error(ss.str());
-	}
-
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		std::stringstream ss;
 		ss << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
 		throw std::runtime_error(ss.str());
 	}
 
+#if 0
 #ifdef _iceage
 	const char* title = "Carnivores: Ice Age - Menu";
 #else // !_iceage
 	const char* title = "Carnivores 2 - Menu";
+#endif
+#else
+	// Partialfix: P.Rex requested a method to change the title but this is a compromise
+	const char *title = "Carnivores - Menu";
 #endif
 
 	window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_SHOWN);
@@ -268,81 +195,20 @@ bool CreateMainWindow()
 	}
 
 	screenSurface = SDL_GetWindowSurface(window);
-	drawSurface = SDL_CreateRGBSurface(0, 800, 600, 16,
-		0x1f << 10,
-		0x1f << 5,
-		0x1f,
-		0x00);
 
-	WNDCLASSEX wc;
-	memset(&wc, 0, sizeof(WNDCLASSEX));
-
-	wc.cbSize = sizeof(WNDCLASSEX);
-	wc.cbClsExtra = 0;
-	wc.cbWndExtra = 0;
-	wc.style = CS_OWNDC;
-	wc.lpfnWndProc = WindowProcedure;
-	wc.hInstance = (HINSTANCE)hInst;
-	wc.hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(IDI_ICON1));
-	wc.hIconSm = LoadIcon(wc.hInstance, MAKEINTRESOURCE(IDI_ICON1));
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
-	wc.lpszMenuName = NULL;
-	wc.lpszClassName = "CarnivoresMenu2";
-
-	if (!RegisterClassEx(&wc)) {
-		std::stringstream ss;
-		ss << "Failed to register the window class, error code" << std::hex << GetLastError() << std::endl;
-		throw std::runtime_error(ss.str());
-		return false;
-	}
-
-	hwndMain = CreateWindowEx(0,
-		wc.lpszClassName,
-		"",
-		WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE |  WS_POPUP,
-		CW_USEDEFAULT, 0, 800, 600,
-		HWND_DESKTOP, 0, hInst, nullptr
-	);
-
-	if (!IsWindow(hwndMain)) {
-		std::stringstream ss;
-		ss << "Failed to create the window, error code: " << std::hex << GetLastError() << std::endl;
-		throw std::runtime_error(ss.str());
-		return false;
-	}
-
-	hdcMain = GetDC(hwndMain);
+// XXX
+//	wc.hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(IDI_ICON1));
+//	wc.hIconSm = LoadIcon(wc.hInstance, MAKEINTRESOURCE(IDI_ICON1));
+//	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+//	wc.lpszClassName = "CarnivoresMenu2";
 
 	std::cout << "Main Window Creation: Ok!" << std::endl;
-
-	// Resize the window so the client (drawing) area is 800x600, and reposition it to the center of the primary screen
-	HuntWindowResize();
-
-	/*
-	FIX: Fixes the window not having a title.
-	*/
-#ifdef _iceage
-	SetWindowText(hwndMain, "Carnivores: Ice Age - Menu");
-#else // !_iceage
-	SetWindowText(hwndMain, "Carnivores 2 - Menu");
-#endif
-
-	// Partialfix: P.Rex requested a method to change the title but this is a compromise
-	SetWindowText(hwndMain, "Carnivores - Menu");
 
 	return true;
 }
 
 
-#ifdef _DEBUG
 int main(int argc, char* argv[]) {
-	hInst = GetModuleHandle(NULL);
-#else
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
-	hInst = hInstance;
-#endif
-	MSG msg = MSG();
 	Timer::Init();
 
 	try {
@@ -359,37 +225,53 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 		// -- Message Loop
 		std::cout << "Entering Messages Loop." << std::endl;
 
-		while (true)
+		SDL_Event e;
+		g_QuitRequested = false;
+		bool shown = true;
+
+		while (!g_QuitRequested)
 		{
 			//Handle SDL event queue
-			SDL_Event e;
-			bool quit = false;
 			while (SDL_PollEvent(&e) != 0)
 			{
-				//User requests quit
-				if (e.type == SDL_QUIT)
+				switch (e.type)
 				{
-					quit = true;
+				case SDL_QUIT:
+					// user requested quit
+					g_QuitRequested = true;
 					break;
-				}
-				//std::cout << "SDL Event " << e.type << std::endl;
-			}
-			if (quit) break;
+				case SDL_WINDOWEVENT:
+					switch (e.window.event) {
+					case SDL_WINDOWEVENT_MINIMIZED:
+						shown = false;
+						break;
+					case SDL_WINDOWEVENT_RESTORED:
+						shown = true;
+						break;
+					}
+					break;
+				case SDL_KEYDOWN:
+					MenuKeyCharEvent(e.key.keysym.sym);
+					break;
+				case SDL_MOUSEWHEEL:
+					{
+						std::cout << "Mouse wheel: " << e.wheel.x << "," << e.wheel.y << " dir: " << e.wheel.direction;
+						MenuMouseScrollEvent(g_MenuState, e.wheel.y);
+					}
+					break;
 
-			if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-			{
-				if (msg.message == WM_QUIT)  break;
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
+				default:
+#ifdef _DEBUG
+					std::cout << e.type << std::endl;
+#endif // _DEBUG
+				}
 			}
-			else
-			{
+
+			if (!shown) {
+				// Sleep when the window is not the active one (10 ticks/frames per second)
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			} else {
 				ProcessMenu();
-
-				if (GetActiveWindow() != hwndMain) {
-					// Sleep when the window is not the active one (10 ticks/frames per second)
-					std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				}
 			}
 		}
 
@@ -428,17 +310,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
 	//Audio_Shutdown();
 	ShutdownInterface();
 
-	TTF_Quit();
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 
-	DestroyWindow(hwndMain); hwndMain = HWND_DESKTOP;
-	UnregisterClass("CarnivoresMenu2", hInst);
 	CloseLogs();
 
-#ifdef _DEBUG
-	return (int)msg.wParam;
-#else
-	return msg.wParam;
-#endif
+	return 0;
 }
