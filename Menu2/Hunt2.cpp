@@ -227,11 +227,8 @@ int main(int argc, char* argv[]) {
 						MenuMouseScrollEvent(g_MenuState, e.wheel.y);
 					}
 					break;
-
-#ifdef _DEBUG
 				default:
-					std::cout << e.type << std::endl;
-#endif // _DEBUG
+					break;
 				}
 			}
 

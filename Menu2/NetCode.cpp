@@ -6,10 +6,6 @@
 *
 */
 
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x701
-#endif // _WIN32_WINNT
-
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif

@@ -815,7 +815,7 @@ void Options::Default()
 	this->KeyMap.fkLeft = SDL_SCANCODE_LEFT;
 	this->KeyMap.fkRight = SDL_SCANCODE_RIGHT;
 #ifdef _iceage
-	this->KeyMap.fkSupply = SDK_SCANCODE_O;
+	this->KeyMap.fkSupply = SDL_SCANCODE_O;
 #endif //_iceage
 	this->MouseInvert = false;
 	this->ScentMode = false;

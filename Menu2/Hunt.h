@@ -1,7 +1,6 @@
 
 // -- Define UNICODE for Wide Characters WCHAR (extra symbols, Japanese Text, etc)
 //#define UNICODE
-#define _DEBUG
 
 // -- Define no secure warnings for sanity when compiling
 #ifndef _CRT_SECURE_NO_WARNINGS
@@ -28,7 +27,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <chrono>
-
+#include <algorithm> // for std::find_if
 
 
 #include "Version.h"
