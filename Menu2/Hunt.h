@@ -1,6 +1,7 @@
 
 // -- Define UNICODE for Wide Characters WCHAR (extra symbols, Japanese Text, etc)
 //#define UNICODE
+#define _DEBUG
 
 // -- Define no secure warnings for sanity when compiling
 #ifndef _CRT_SECURE_NO_WARNINGS
@@ -43,6 +44,22 @@
 #define TRURGB(r,g,b) ((uint32_t)( (b) | (g<<8) | (r<<16) | (0xFF<<24) ) )
 #define HIRGBA(r,g,b,a) ((uint16_t)( (b) | (g<<5) | (r<<10) ) | (a<<15) )
 #define TRURGBA(r,g,b,a) ((uint32_t)( (b) | (g<<8) | (r<<16) | (a<<24) ) )
+
+inline uint16_t toHiRGB(uint32_t rgb888) {
+	int r = ((rgb888 >> 16) & 0xff) >> 3;
+	int g = ((rgb888 >> 8) & 0xff) >> 3;
+	int b = (rgb888 & 0xff) >> 3;
+	return HIRGB(r,g,b);
+}
+
+inline std::string&
+rtrim(std::string& line) {
+	// The wonderful world of C++ ~:
+	line.erase(std::find_if(line.rbegin(), line.rend(), [](unsigned char ch) {
+			return !std::isspace(ch);
+	}).base(), line.end());
+	return line;
+}
 
 // ======================================================================= //
 // Global Enumerators

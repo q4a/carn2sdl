@@ -12,7 +12,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
-#include <string>
+#include <cstring>
 #include <thread>
 
 
@@ -80,7 +80,7 @@ TTF_Font* gFont;
 SDL_Point g_CursorPos;
 int g_MouseState;
 int g_WaitKey = -1;
-uint32_t gCurrColor; // This is a "full" 32bit RGB(a) color, as created with RGB(r,g,b)
+uint32_t gCurrColor; // 32 bit ARGB value
 
 // String table
 const char g_GitHubURL[] = "https://github.com/carnivores-cpe/Carn2-Menu";
@@ -118,7 +118,7 @@ void AcceptNewKey()
 {
 	const uint8_t* keystate;
 
-	if (keystate = SDL_GetKeyboardState(NULL)) {
+	if ((keystate = SDL_GetKeyboardState(NULL)) != NULL) {
 
 		if (keystate[SDL_SCANCODE_ESCAPE])
 		{
@@ -181,12 +181,16 @@ Map the virtual-key-code to a scan-code
 */
 int MapVKKey(int k)
 {
+#ifdef _WIN32
 	if (k == VK_LBUTTON) return 124;
 	if (k == VK_RBUTTON) return 125;
 	if (k == VK_MBUTTON) return 126;
 	if (k == VK_XBUTTON1) return 128;
 	if (k == VK_XBUTTON2) return 129;
 	return MapVirtualKey(k, MAPVK_VK_TO_VSC);
+#else
+	return k;
+#endif
 }
 
 
@@ -491,13 +495,7 @@ void ShutdownInterface()
 
 void _Line(int x1, int y1, int x2, int y2)
 {
-	SDL_Color rgbColor = {
-		(gCurrColor >> 0) & 0xff,
-		(gCurrColor >> 8) & 0xff,
-		(gCurrColor >> 16) & 0xff,
-	};
-
-	uint16_t color565 = HIRGB(rgbColor.r >> 3, rgbColor.g >> 3, rgbColor.b >> 3);
+	uint16_t color565 = toHiRGB(gCurrColor);
 
 	int dx = abs(x2 - x1);
 	int dy = abs(y2 - y1);
@@ -520,7 +518,7 @@ void DrawProgressBar(int x, int y, float l)
 {
 	int W = 120; y += 13;
 
-	gCurrColor = RGB(0,0,0);
+	gCurrColor = 0x000000;
 	x += 1; y += 1;
 	_Line(x, y - 9, x + W + 1, y - 9);
 	_Line(x, y, x + W + 1, y);
@@ -550,14 +548,7 @@ void DrawRectangle(int x, int y, int w, int h, int color)
 {
 	uint16_t* back_buffer = (uint16_t*)drawSurface->pixels;
 
-	SDL_Color rgbColor = {
-		(color >> 0) & 0xff,
-		(color >> 8) & 0xff,
-		(color >> 16) & 0xff,
-	};
-
-	uint16_t color565 = HIRGB(rgbColor.r >> 3, rgbColor.g >> 3, rgbColor.b >> 3);
-
+	uint16_t color565 = toHiRGB(color);
 	for (int i = y; i < y + h -1; i++) {
 		for (int j = x; j < x + w -1; j++) {
 			back_buffer[j + (i * 800)] = color565;
@@ -566,7 +557,7 @@ void DrawRectangle(int x, int y, int w, int h, int color)
 }
 
 
-void DrawSliderBar(int x, int y, int w, float v, int slider_rgb = RGB(239, 228, 176))
+void DrawSliderBar(int x, int y, int w, float v, int slider_rgb = 0xefe4b0)
 {
 	if (v < 0.0f)
 		v = 0.0f;
@@ -576,7 +567,7 @@ void DrawSliderBar(int x, int y, int w, float v, int slider_rgb = RGB(239, 228, 
 	int xs = (int)(x + ((w - 2) * v));
 
 	// Draw track
-	gCurrColor = RGB(0,0,0);
+	gCurrColor = 0x00000000;
 	_Line(x, y - 4, x + w + 1, y - 4);
 	_Line(x, y - 3, x + w + 1, y - 3);
 	_Line(x, y - 2, x + w + 1, y - 2);
@@ -651,7 +642,7 @@ void DrawMenuBg(MenuItem& menu)
 void DrawTextColor(int x, int y, const std::string& text, uint32_t color, int align = DTA_LEFT)
 {
 	// Nothing to do, skip out early
-	if (text.length() == 0) {
+	if (text.length() == 0 || !gFont) {
 		return;
 	}
 
@@ -660,11 +651,10 @@ void DrawTextColor(int x, int y, const std::string& text, uint32_t color, int al
 		x -= GetTextW(text);
 	}
 
-	// SDL
 	SDL_Color sdlColor = {
-		(color >> 0) & 0xff,
-		(color >> 8) & 0xff, 
-		(color >> 16) & 0xff,
+		uint8_t(color >> 16),
+		uint8_t(color >> 8), 
+		uint8_t(color >> 0),
 	};
 	SDL_Surface *textSurface;
 	if (!(textSurface = TTF_RenderUTF8_Blended(gFont, text.c_str(), sdlColor))) {
@@ -685,7 +675,7 @@ void DrawTextShadow(int x, int y, const std::string& text, uint32_t color, int a
 		x -= GetTextW(text);
 	}
 
-	DrawTextColor(x + 1, y + 1, text, RGB(0, 0, 0));
+	DrawTextColor(x + 1, y + 1, text, 0x00000000);
 	DrawTextColor(x, y, text, color);
 }
 
@@ -704,11 +694,11 @@ void DrawURLShadow(int x, int y, const std::string& text, uint32_t color, int al
 
 	if (IsPointInRect(g_CursorPos, rc))
 	{
-		color = RGB(244, 10, 10);
+		color = 0x00f40a0a;
 	}
 
 	DrawTextColor(x + 1, y + 1, text, 0x000000);
-	gCurrColor = RGB(0, 0, 0);
+	gCurrColor = 0x00000000;
 	_Line(x + 1, y + H + 1, x + W + 1, y + H + 1);
 
 	DrawTextColor(x, y, text, color);
@@ -723,7 +713,7 @@ void InterfaceSetFont(TTF_Font* font)
 }
 
 
-void InterfaceClear(WORD Color)
+void InterfaceClear(uint16_t Color)
 {
 	memset(drawSurface->pixels, 0, (800 * 2) * 600);
 }
@@ -982,7 +972,7 @@ void DrawMenuProfile()
 {
 	std::stringstream ss;
 
-	int c = RGB(239, 228, 176);
+	int c = 0x00efe4b0;
 
 	InterfaceSetFont(fontBig);
 	DrawTextShadow(90, 9, g_UserProfile.Name, c);
@@ -1010,48 +1000,48 @@ to draw the profile name and score/rank as an overlay.
 void DrawMenuStatistics()
 {
 	// X 602 - 792
-	RECT rc = { 602, 70, 792, 300 };
+	SDL_Rect rc = { 602, 70, 190, 230 };
 	std::stringstream ss;
-	int c = RGB(239, 228, 176);
+	int c = 0x00efe4b0;
 
 	InterfaceSetFont(fontMid);
 	int  ttm = (int)g_UserProfile.Total.time;
 	int  ltm = (int)g_UserProfile.Last.time;
 
-	DrawTextShadow(rc.left + 4, 78, "Path travelled  ", c);
+	DrawTextShadow(rc.x + 4, 78, "Path travelled  ", c);
 
 	if (g_Options.OptSys)
 		ss << std::setprecision(4) << (g_UserProfile.Last.path / 0.3f) << " ft.";
 	else
 		ss << std::setprecision(4) << (g_UserProfile.Last.path) << " m.";
 
-	DrawTextShadow(rc.right - 4, 78, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 78, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
-	DrawTextShadow(rc.left + 4, 98, "Time hunted  ", c);
+	DrawTextShadow(rc.x + 4, 98, "Time hunted  ", c);
 	ss << std::dec << (ltm / 3600) << ":"; // Hours
 	ss << std::setfill('0') << std::setw(2) << ((ltm % 3600) / 60) << ":"; // Minutes
 	ss << std::setfill('0') << std::setw(2) << (ltm % 60); // Seconds
-	DrawTextShadow(rc.right - 4, 98, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 98, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
-	DrawTextShadow(rc.left + 4, 118, "Shots made  ", c);
+	DrawTextShadow(rc.x + 4, 118, "Shots made  ", c);
 	ss << g_UserProfile.Last.smade;
-	DrawTextShadow(rc.right - 4, 118, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 118, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
 	int accuracy = 0;
 	if (g_UserProfile.Last.success > 0)
 		accuracy = ((g_UserProfile.Last.success / g_UserProfile.Last.smade) * 100);
 
-	DrawTextShadow(rc.left + 4, 138, "Accuracy  ", c);
+	DrawTextShadow(rc.x + 4, 138, "Accuracy  ", c);
 	ss << accuracy << "%";
-	DrawTextShadow(rc.right - 4, 138, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 138, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
 	/************************** TOTAL STATS **************************/
 
-	DrawTextShadow(rc.left + 4, 208, "Path travelled  ", c);
+	DrawTextShadow(rc.x + 4, 208, "Path travelled  ", c);
 
 	if (g_UserProfile.Total.path < 1000)
 	{
@@ -1064,38 +1054,38 @@ void DrawMenuStatistics()
 		else                  ss << std::setprecision(4) << (g_UserProfile.Total.path / 1000.f) << " km.";
 	}
 
-	DrawTextShadow(rc.right - 4, 208, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 208, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
-	DrawTextShadow(rc.left + 4, 228, "Time hunted  ", c);
+	DrawTextShadow(rc.x + 4, 228, "Time hunted  ", c);
 	ss << std::dec << (ttm / 3600) << ":"; // Hours
 	ss << std::setfill('0') << std::setw(2) << ((ttm % 3600) / 60) << ":"; // Minutes
 	ss << std::setfill('0') << std::setw(2) << (ttm % 60); // Seconds
-	DrawTextShadow(rc.right - 4, 228, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 228, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
-	DrawTextShadow(rc.left + 4, 248, "Shots made  ", c);
+	DrawTextShadow(rc.x + 4, 248, "Shots made  ", c);
 	ss << g_UserProfile.Total.smade;
-	DrawTextShadow(rc.right - 4, 248, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 248, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
 	accuracy = 0;
 	if (g_UserProfile.Total.success > 0 && g_UserProfile.Total.smade > 0)
 		accuracy = static_cast<int>((float)((float)g_UserProfile.Total.success / (float)g_UserProfile.Total.smade) * 100.f);
 
-	DrawTextShadow(rc.left + 4, 268, "Accuracy  ", c);
+	DrawTextShadow(rc.x + 4, 268, "Accuracy  ", c);
 	ss << accuracy << "%";
-	DrawTextShadow(rc.right - 4, 268, ss.str(), c, DTA_RIGHT);
+	DrawTextShadow(rc.x + rc.w - 4, 268, ss.str(), c, DTA_RIGHT);
 	ss.str(""); ss.clear();
 
-	DrawTextShadow(rc.left + 4, 288, "Rank:", c);
+	DrawTextShadow(rc.x + 4, 288, "Rank:", c);
 
 	switch (g_UserProfile.Rank)
 	{
-	case 0: DrawTextShadow(rc.right - 4, 288, "Novice", c, DTA_RIGHT); break;
-	case 1: DrawTextShadow(rc.right - 4, 288, "Advanced", c, DTA_RIGHT); break;
-	case 2: DrawTextShadow(rc.right - 4, 288, "Expert", c, DTA_RIGHT); break;
-	default: DrawTextShadow(rc.right - 4, 288, "Eldritch", c, DTA_RIGHT); break; // Easter egg/invalid rank
+	case 0: DrawTextShadow(rc.x + rc.w - 4, 288, "Novice", c, DTA_RIGHT); break;
+	case 1: DrawTextShadow(rc.x + rc.w - 4, 288, "Advanced", c, DTA_RIGHT); break;
+	case 2: DrawTextShadow(rc.x + rc.w - 4, 288, "Expert", c, DTA_RIGHT); break;
+	default: DrawTextShadow(rc.x + rc.w - 4, 288, "Eldritch", c, DTA_RIGHT); break; // Easter egg/invalid rank
 	}
 
 	DrawMenuProfile();
@@ -1106,14 +1096,14 @@ void DrawMenuStatistics()
 */
 void DrawMenuCredits()
 {
-	uint32_t color = RGB(239, 228, 176);
+	uint32_t color = 0x00efe4b0;
 	std::vector<std::string> contributor_list = {
 		/* Please do not remove this name */ "Rexhunter99"
 	};
 
 	InterfaceSetFont(fontSmall);
 
-	DrawURLShadow(550, 42, g_GitHubURL, RGB(126, 178, 239));
+	DrawURLShadow(550, 42, g_GitHubURL, 0x7eb2ef);
 
 	DrawTextShadow(550, 60, "Launcher Code:", color);
 	
@@ -1127,7 +1117,7 @@ void DrawMenuCredits()
 
 void DrawMenuHunt()
 {
-	uint32_t c = RGB(239, 228, 176);
+	uint32_t c = 0x00efe4b0;
 	std::stringstream ss;
 
 	if (g_HuntSelectPic != nullptr)
@@ -1205,7 +1195,7 @@ void DrawMenuHunt()
 
 	for (unsigned ii = MenuHunt[0].Offset; ii < MenuHunt[0].Offset + list_max; ii++) {
 		int i = ii - MenuHunt[0].Offset;
-		c = 0xB0B070;
+		c = 0x70B0B0;
 
 		std::stringstream sc;
 		sc << g_AreaInfo[ii].m_Price;
@@ -1215,7 +1205,7 @@ void DrawMenuHunt()
 
 		if (MenuHunt[0].Selected == ii)
 		{
-			c = RGB(255, 255, 10);
+			c = 0x00ffff0a;
 		}
 
 		DrawTextShadow(MenuHunt[0].Rect.x + 4, MenuHunt[0].Rect.y + (16 * i), g_AreaInfo[ii].m_Name, c);
@@ -1225,7 +1215,7 @@ void DrawMenuHunt()
 	for (unsigned ii = MenuHunt[1].Offset; ii < MenuHunt[1].Offset + MenuHunt[1].Item.size(); ii++)
 	{
 		int i = ii - MenuHunt[1].Offset;
-		uint32_t c = 0xB0B070;
+		uint32_t c = 0x70B0B0;
 		try {
 			DinoInfo& di = g_DinoInfo.at(g_DinoList[ii]);
 			std::string s = di.m_Name;
@@ -1248,7 +1238,7 @@ void DrawMenuHunt()
 
 			if (MenuHunt[1].Item[ii].second)
 			{
-				c = RGB(255, 255, 10);
+				c = 0x00ffff0a;
 			}
 
 			DrawTextShadow(MenuHunt[1].Rect.x + 4, MenuHunt[1].Rect.y + (16 * i), s, c);
@@ -1261,7 +1251,7 @@ void DrawMenuHunt()
 
 	for (unsigned ii = MenuHunt[2].Offset; ii < MenuHunt[2].Offset + MenuHunt[2].Item.size(); ii++)
 	{
-		uint32_t c = 0xB0B070;
+		uint32_t c = 0x70B0B0;
 		int i = ii - MenuHunt[2].Offset;
 		WeapInfo& wi = g_WeapInfo[ii];
 		std::stringstream sc;
@@ -1274,7 +1264,7 @@ void DrawMenuHunt()
 
 		if (MenuHunt[2].Item[ii].second)
 		{
-			c = RGB(255, 255, 10);
+			c = 0xffff0a;
 		}
 
 		DrawTextShadow(MenuHunt[2].Rect.x + 4, MenuHunt[2].Rect.y + (16 * i), g_WeapInfo[ii].m_Name, c);
@@ -1283,12 +1273,12 @@ void DrawMenuHunt()
 
 	for (unsigned ii = MenuHunt[3].Offset; ii < MenuHunt[3].Offset + MenuHunt[3].Item.size(); ii++)
 	{
-		uint32_t c = 0xB0B070;
+		uint32_t c = 0x70B0B0;
 		int i = ii - MenuHunt[3].Offset;
 
 		if (MenuHunt[3].Item[ii].second)
 		{
-			c = RGB(255, 255, 10);
+			c = 0xffff0a;
 		}
 
 		DrawTextShadow(MenuHunt[3].Rect.x + 4, MenuHunt[3].Rect.y + (16 * i), MenuHunt[3].Item[ii].first, c);
@@ -1303,7 +1293,7 @@ void DrawMenuRegistry()
 {
 	SDL_Point& p = g_CursorPos;
 	std::stringstream ss;
-	uint32_t color = RGB(239, 228, 176);
+	uint32_t color = 0xefe4b0;
 
 	if (g_MenuState == MENU_REGISTRY_DELETE)
 	{
@@ -1316,7 +1306,7 @@ void DrawMenuRegistry()
 	else {
 		InterfaceSetFont(fontSmall);
 
-		if ((timeGetTime() % 800) > 300)
+		if ((Timer::GetTime() % 800) > 300)
 			ss << g_TypingBuffer << "_";
 		else
 			ss << g_TypingBuffer;
@@ -1328,15 +1318,15 @@ void DrawMenuRegistry()
 		// 320, 370
 		for (auto i = 0U; i < 7U; i++)
 		{
-			color = 0xB0B070; // Base colour
+			color = 0x70B0B0; // Base colour
 
 			if (i == g_HiliteProfileIndex)
-				color = RGB(255, 170, 10);
+				color = 0xffaa0a;
 
 			if (p.x >= 308 && p.y >= (368 + (16 * i)) && p.x <= 408 && p.y <= (368 + (16 * i) + 16)) {
 				g_HiliteProfileIndex = i; //temporary, move to another function for user input
 #ifdef _DEBUG
-				color = RGB(42, 255, 42);
+				color = 0x2aff2a;
 #endif
 			}
 
@@ -1385,7 +1375,9 @@ void MenuEventInput(int32_t menu)
 
 			if (IsPointInRect(g_CursorPos, rc))
 			{
+#ifdef _WIN32				
 				ShellExecute(0, 0, TEXT(g_GitHubURL), 0, 0, SW_SHOW);
+#endif
 			}
 			else
 			{
@@ -1421,7 +1413,9 @@ void MenuEventInput(int32_t menu)
 					}
 					else
 					{
+#ifdef _WIN32
 						MessageBox(NULL, "You need to enter a name!", "Try again!", MB_OK | MB_ICONINFORMATION);
+#endif
 					}
 				}
 				else {
@@ -1943,8 +1937,8 @@ void DrawMenuOptions()
 {
 	const int label_c = 0x007696b5; // From Carnivores: Ice Age (JPEG image)
 	const int value_c = 0x00abb4a7; // From Carnivores: Ice Age (JPEG image)
-	const int off_c = RGB(239, 228, 176);
-	const int on_c = RGB(30, 239, 30);
+	const int off_c = 0xefe4b0;
+	const int on_c = 0x1eef1e;
 	int c = off_c;
 
 	InterfaceSetFont(fontMid); // XXX!!!!!!  g_FontOptions
@@ -2098,15 +2092,15 @@ void ProcessMenu()
 
 	std::stringstream ss;
 	ss << "FPS: " << g_FramesPerSecond;
-	DrawTextShadow(2, 2, ss.str(), RGB(255, 60, 60));
+	DrawTextShadow(2, 2, ss.str(), 0xff3c3c);
 	ss.str(""); ss.clear();
 
 	ss << "FT:  " << t_diff << "ms";
-	DrawTextShadow(2, 2 + 14, ss.str(), RGB(255, 60, 60));
+	DrawTextShadow(2, 2 + 14, ss.str(), 0xff3c3c);
 	ss.str(""); ss.clear();
 
 	ss << "XY:  " << g_CursorPos.x << "x" << g_CursorPos.y;
-	DrawTextShadow(2, 2 + 28, ss.str(), RGB(255, 60, 60));
+	DrawTextShadow(2, 2 + 28, ss.str(), 0xff3c3c);
 
 	if (t_diff < FRAME_TIME_DELTA) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(FRAME_TIME_DELTA - t_diff));

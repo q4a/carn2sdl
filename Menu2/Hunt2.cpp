@@ -51,7 +51,7 @@ void CreateLog()
 #ifdef _W64
 	std::cout << "64-Bit ";
 #else // !_W64
-	std::cout << "32-Bit "
+	std::cout << "32-Bit ";
 #endif // _W64
 	std::cout << __DATE__ << std::endl;
 	PrintLogSeparater();
@@ -131,42 +131,10 @@ int LaunchProcess(const std::string& exe_name, std::vector<std::string> args)
 std::string errordialog_str = "";
 
 
-INT_PTR CALLBACK ErrorDialogProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch (uMsg)
-	{
-	case WM_INITDIALOG:
-		SetDlgItemText(hWnd, IDC_ERROR_TEXT, errordialog_str.c_str());
-		break;
-
-	case WM_COMMAND:
-		switch (LOWORD(wParam))
-		{
-		case IDOK:
-			// Do the do.
-		case IDCANCEL:
-			EndDialog(hWnd, wParam);
-			return true;
-		}
-		break;
-	}
-
-	return false;
-}
-
 void ShowErrorMessage(const std::string& error_text)
 {
 	errordialog_str = error_text;
-
-	// XXXX !
-	if (DialogBox(NULL, MAKEINTRESOURCE(IDD_ERROR_DIALOG), NULL, &ErrorDialogProc) == IDOK)
-	{
-		// Save the contents to an 'error.txt' dump
-	}
-	else
-	{
-		// Just halt the program execution (normal behaviour)
-	}
+	std::cout << error_text << std::endl;
 }
 
 bool CreateMainWindow()
@@ -260,8 +228,8 @@ int main(int argc, char* argv[]) {
 					}
 					break;
 
-				default:
 #ifdef _DEBUG
+				default:
 					std::cout << e.type << std::endl;
 #endif // _DEBUG
 				}

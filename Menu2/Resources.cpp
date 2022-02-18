@@ -14,9 +14,8 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
-#include <string>
+#include <cstring>
 #include <cstdlib>
-
 
 class script_error : public std::exception
 {
@@ -80,9 +79,9 @@ AreaInfo MakeOldAreaInfo(int index, int price)
 		{
 			std::string line = "";
 			std::getline(f, line);
-			a.m_Description.push_back(line);
+			a.m_Description.push_back(rtrim(line));
 		}
-		f.close();
+		//f.close();
 	}
 	else
 	{
@@ -705,7 +704,7 @@ bool LoadText(std::vector<std::string>& txt, const std::string& path)
 		{
 			std::string line = "";
 			std::getline(tf, line);
-			txt.push_back(line);
+			txt.push_back(rtrim(line));
 		}
 		tf.close();
 		return true;
@@ -804,19 +803,19 @@ void Options::Default()
 	this->KeyMap.fkBackward = 'S';
 	this->KeyMap.fkSLeft = 'A';
 	this->KeyMap.fkSRight = 'D';
-	this->KeyMap.fkFire = VK_LBUTTON;
-	this->KeyMap.fkShow = VK_RBUTTON;
-	this->KeyMap.fkJump = VK_SPACE;
-	this->KeyMap.fkCall = VK_MENU;
-	this->KeyMap.fkBinoc = 'B';
-	this->KeyMap.fkCrouch = 'C';
-	this->KeyMap.fkRun = VK_LSHIFT;
-	this->KeyMap.fkUp = VK_UP;
-	this->KeyMap.fkDown = VK_DOWN;
-	this->KeyMap.fkLeft = VK_LEFT;
-	this->KeyMap.fkRight = VK_RIGHT;
+	this->KeyMap.fkFire = SDL_SCANCODE_LALT;
+	this->KeyMap.fkShow = SDL_SCANCODE_RALT;
+	this->KeyMap.fkJump = SDL_SCANCODE_SPACE;
+	this->KeyMap.fkCall = SDL_SCANCODE_LCTRL;
+	this->KeyMap.fkBinoc = SDL_SCANCODE_B;
+	this->KeyMap.fkCrouch = SDL_SCANCODE_C;
+	this->KeyMap.fkRun = SDL_SCANCODE_LSHIFT;
+	this->KeyMap.fkUp = SDL_SCANCODE_UP;
+	this->KeyMap.fkDown = SDL_SCANCODE_DOWN;
+	this->KeyMap.fkLeft = SDL_SCANCODE_LEFT;
+	this->KeyMap.fkRight = SDL_SCANCODE_RIGHT;
 #ifdef _iceage
-	this->KeyMap.fkSupply = 'O';
+	this->KeyMap.fkSupply = SDK_SCANCODE_O;
 #endif //_iceage
 	this->MouseInvert = false;
 	this->ScentMode = false;
