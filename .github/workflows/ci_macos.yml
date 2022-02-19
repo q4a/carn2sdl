@@ -1,0 +1,35 @@
+name: CI MacOS
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/ci_linux.yml'
+      - '.github/workflows/ci_windows.yml'
+  pull_request:
+
+jobs:
+  build-macos:
+    runs-on: macos-11
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, RelWithDebInfo]
+        platform: [x64]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+    - name: Install libs x64
+      if: matrix.platform == 'x64'
+      run: |
+        brew install sdl2 sdl2_ttf
+    - name: Configure with cmake
+      run: |
+        mkdir build && cd build
+        if [ "${{ matrix.Platform }}" = "x64" ]; then
+        cmake .. -DCMAKE_BUILD_TYPE=${{matrix.configuration}}
+        fi
+    - name: Build project
+      run: make
+      working-directory: build

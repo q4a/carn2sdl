@@ -1,0 +1,48 @@
+name: CI Linux
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/ci_macos.yml'
+      - '.github/workflows/ci_windows.yml'
+  pull_request:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, RelWithDebInfo]
+        platform: [x86, x64]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+    - name: Install libs x64
+      if: matrix.platform == 'x64'
+      run: |
+        sudo apt-get update
+        sudo apt-get install cmake ninja-build libsdl2-dev libsdl2-ttf-dev
+    - name: Install libs x86
+      if: matrix.platform == 'x86'
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo sed -i 's/azure\.//' /etc/apt/sources.list # fix CI error https://github.com/actions/virtual-environments/issues/675
+        sudo apt-get update
+        sudo apt-get -y install --allow-downgrades libpcre2-8-0=10.34-7 # fix CI error https://github.com/actions/virtual-environments/issues/4620
+        # real packages:
+        sudo apt-get install gcc-multilib g++-multilib cmake ninja-build libsdl2-dev:i386 libsdl2-ttf-dev:i386
+    - name: Configure with cmake
+      run: |
+        mkdir build && cd build
+        if [ "${{ matrix.Platform }}" = "x64" ]; then
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=${{matrix.configuration}}
+        fi
+        if [ "${{ matrix.Platform }}" = "x86" ]; then
+        CFLAGS="-m32" CXXFLAGS="-m32" cmake .. -G Ninja -DCMAKE_BUILD_TYPE=${{matrix.configuration}} -DCMAKE_PREFIX_PATH=/usr -DCMAKE_LIBRARY_ARCHITECTURE=i386-linux-gnu
+        fi
+    - name: Build project
+      run: ninja
+      working-directory: build
