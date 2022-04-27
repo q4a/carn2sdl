@@ -326,9 +326,9 @@ void InitInterface()
 		throw std::runtime_error(ss.str());
 	}
 
-	fontSmall = TTF_OpenFont("LibreBaskerville-Regular.ttf", 10);
-	fontMid = TTF_OpenFont("LibreBaskerville-Regular.ttf", 12);
-	fontBig = TTF_OpenFont("LibreBaskerville-Regular.ttf", 18);
+	fontSmall = TTF_OpenFont("librebaskerville-regular.ttf", 10);
+	fontMid = TTF_OpenFont("librebaskerville-regular.ttf", 12);
+	fontBig = TTF_OpenFont("librebaskerville-regular.ttf", 18);
 	if (!fontSmall)
 		std::cout << "Interface : Failed to create Small Font" << std::endl;
 	if (!fontMid)
@@ -875,57 +875,57 @@ void LoadGameMenu(int32_t menu)
 	switch (menu) {
 	case MENU_REGISTER:
 	{
-		mf_off = "HUNTDAT/MENU/MENUR.TGA";
-		mf_on = "HUNTDAT/MENU/MENUR_ON.TGA";
-		mf_map = "HUNTDAT/MENU/MR_MAP.RAW";
+		mf_off = "huntdat/menu/menur.tga";
+		mf_on = "huntdat/menu/menur_on.tga";
+		mf_map = "huntdat/menu/mr_map.raw";
 	} break;
 	case MENU_REGISTRY_DELETE:
 	{
-		mf_off = "HUNTDAT/MENU/MENUD.TGA";
-		mf_on = "HUNTDAT/MENU/MENUD_ON.TGA";
-		mf_map = "HUNTDAT/MENU/MD_MAP.RAW";
+		mf_off = "huntdat/menu/menud.tga";
+		mf_on = "huntdat/menu/menud_on.tga";
+		mf_map = "huntdat/menu/md_map.raw";
 	} break;
 	case MENU_REGISTRY_WAIVER:
 	{
-		mf_off = "HUNTDAT/MENU/MENUL.TGA";
-		mf_on = "HUNTDAT/MENU/MENUL_ON.TGA";
-		mf_map = "HUNTDAT/MENU/ML_MAP.RAW";
+		mf_off = "huntdat/menu/menul.tga";
+		mf_on = "huntdat/menu/menul_on.tga";
+		mf_map = "huntdat/menu/ml_map.raw";
 	} break;
 	case MENU_MAIN:
 	{
-		mf_off = "HUNTDAT/MENU/MENUM.TGA";
-		mf_on = "HUNTDAT/MENU/MENUM_ON.TGA";
-		mf_map = "HUNTDAT/MENU/MAIN_MAP.RAW";
+		mf_off = "huntdat/menu/menum.tga";
+		mf_on = "huntdat/menu/menum_on.tga";
+		mf_map = "huntdat/menu/main_map.raw";
 	} break;
 	case MENU_HUNT:
 	{
-		mf_off = "HUNTDAT/MENU/MENU2.TGA";
-		mf_on = "HUNTDAT/MENU/MENU2_ON.TGA";
-		mf_map = "HUNTDAT/MENU/M2_MAP.RAW";
+		mf_off = "huntdat/menu/menu2.tga";
+		mf_on = "huntdat/menu/menu2_on.tga";
+		mf_map = "huntdat/menu/m2_map.raw";
 	} break;
 	case MENU_OPTIONS:
 	{
-		mf_off = "HUNTDAT/MENU/OPT_OFF.TGA";
-		mf_on = "HUNTDAT//MENU/OPT_ON.TGA";
-		mf_map = "HUNTDAT/MENU/OPT_MAP.RAW";
+		mf_off = "huntdat/menu/opt_off.tga";
+		mf_on = "huntdat/menu/opt_on.tga";
+		mf_map = "huntdat/menu/opt_map.raw";
 	} break;
 	case MENU_CREDITS:
 	{
-		mf_off = "HUNTDAT/MENU/CREDITS.TGA";
+		mf_off = "huntdat/menu/credits.tga";
 		mf_on = "";
 		mf_map = "";
 	} break;
 	case MENU_STATISTICS:
 	{
-		mf_off = "HUNTDAT/MENU/MENUS.TGA";
+		mf_off = "huntdat/menu/menus.tga";
 		mf_on = "";
 		mf_map = "";
 	} break;
 	case MENU_QUIT:
 	{
-		mf_off = "HUNTDAT/MENU/MENUQ.TGA";
-		mf_on = "HUNTDAT/MENU/MENUQ_ON.TGA";
-		mf_map = "HUNTDAT/MENU/MQ_MAP.RAW";
+		mf_off = "huntdat/menu/menuq.tga";
+		mf_on = "huntdat/menu/menuq_on.tga";
+		mf_map = "huntdat/menu/mq_map.raw";
 	} break;
 	default:
 	{

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.7)
 
-project(Menu2SDL)
+project(carn2sdl)
 
 
 set(CMAKE_CXX_STANDARD 17)
@@ -45,5 +45,5 @@ endif()
 include_directories(${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIRS})
 link_directories(${SDL2_LIBRARY_DIRS} ${SDL2TFF_LIBRARY_DIRS})
 
-add_executable(Menu2SDL Menu2/Hunt2.cpp Menu2/Menu.cpp Menu2/Resources.cpp Menu2/Menu2.rc)
-target_link_libraries(Menu2SDL ${SDL2_LIBRARIES} ${SDL2TTF_LIBRARIES})
+add_executable(carn2sdl Menu2/Hunt2.cpp Menu2/Menu.cpp Menu2/Resources.cpp Menu2/Menu2.rc)
+target_link_libraries(carn2sdl ${SDL2_LIBRARIES} ${SDL2TTF_LIBRARIES})
